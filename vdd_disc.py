@@ -57,6 +57,26 @@ def vdd_pdf(taus, dt, std, damping, scale, tau_threshold, act_threshold, N=100, 
     
     return deadpdf/dt
 
+def vdd_loss(trials, dt, N=10):
+    taus, rts = zip(*trials)
+    ts = [np.arange(len(tau))*dt for tau in taus]
+    rtis = [t.searchsorted(rt) for (t, rt) in zip(ts, rts)]
+    hacktaus = []
+    for tau in taus:
+        hacktau = tau.copy()
+        hacktau[hacktau < 0] = 1e5
+        hacktaus.append(hacktau)
+
+    def loss(**kwargs):
+        lik = 0
+        for tau, rti in zip(hacktaus, rtis):
+            pdf = vdd_pdf(tau, dt, **kwargs, N=N)
+            lik += np.sum(np.log(pdf[rti] + 1e-9))
+
+        return -lik
+    
+    return loss
+
 def test():
     dt = 1/30
     dur = 20
@@ -73,7 +93,7 @@ def test():
     for std in np.linspace(0.1, 2.0, 10):
         param = dict(
             std=std,
-            damping=0.3,
+            damping=0.4,
             scale=1.0,
             tau_threshold=3.5,
             act_threshold=0.5,
