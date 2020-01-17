@@ -13,6 +13,9 @@ VddmParams = namedtuple('VddmParams',
 
 eps = np.finfo(float).eps
 
+DEFAULT_MINACT = -3.0
+DEFAULT_MAXACT = 3.0
+
 @njit()
 def normpdf(x, m, v):
     return np.exp(-(m - x)**2/(2*v))/np.sqrt(2*np.pi*v)
@@ -44,13 +47,15 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
         act = acts[i]
         diff_mean = diff_mean_tau - alpha*act
         
-        for j in range(N):
+        smallenough = 1.0
+        bigenough = 1.0
+        for j in range(N - 1):
             diff = acts[j] - act
             
             # TODO: The probabilities don't sum to one on small da. May be numerical
             #   problems, but may be buggy code. Check especially the boundary stuff!
-            # TODO: This computes every edge cdf twice (IN THE MOST INNER LOOP!!),
-            #  whereas one would suffice and the boundaries would be handled nicer.
+            
+            """
             if j == 0:
                 trans_prob = normcdf(diff + da/2, diff_mean,  diff_var)
             elif j == N - 1:
@@ -63,8 +68,12 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
                 # N(dm, dv) > acts[j] - act - da/2
                 bigenough = 1.0 - normcdf(diff - da/2, diff_mean, diff_var)
                 trans_prob = bigenough*smallenough
-
-            nweights[j] += trans_prob*pweights[i]
+            """
+            
+            smallenough = normcdf(diff + da/2, diff_mean,  diff_var)
+            nweights[j] += smallenough*bigenough*pweights[i]
+            bigenough = 1.0 - smallenough
+        nweights[-1] += pweights[i]*bigenough
     
     # Doing the decisions after normalizing due to the numerical(?) issues
     nweights /= np.sum(nweights)
@@ -83,7 +92,7 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
     return decided
 
 @njit()
-def vdd_activation_pdf(p, taus, N=100, minact=-5.0, maxact=5.0):
+def vdd_activation_pdf(p, taus, N=100, minact=DEFAULT_MINACT, maxact=DEFAULT_MAXACT):
     acts = np.linspace(minact, maxact, N)
     da = acts[1] - acts[0]
     weights = np.zeros((len(taus) + 1, N))
@@ -100,7 +109,7 @@ def vdd_activation_pdf(p, taus, N=100, minact=-5.0, maxact=5.0):
     return weights[1:], deadpdf/p.dt, acts
 
 @njit()
-def vdd_decision_pdf(p, taus, N=100, minact=-5.0, maxact=5.0):
+def vdd_decision_pdf(p, taus, N=100, minact=DEFAULT_MINACT, maxact=DEFAULT_MAXACT):
     acts = np.linspace(minact, maxact, N)
     da = acts[1] - acts[0]
 
@@ -122,7 +131,7 @@ def vdd_decision_pdf(p, taus, N=100, minact=-5.0, maxact=5.0):
     return deadpdf/p.dt
 
 @njit()
-def vdd_blocker_activation_pdf(p, taus, blocker_taus, N=100, minact=-5.0, maxact=5.0):
+def vdd_blocker_activation_pdf(p, taus, blocker_taus, N=100, minact=DEFAULT_MINACT, maxact=DEFAULT_MAXACT):
     acts = np.linspace(minact, maxact, N)
     da = acts[1] - acts[0]
     weights = np.zeros((len(taus) + 1, N))
@@ -152,15 +161,11 @@ def vdd_loss(trials, dt, N=100):
     taus, rts = zip(*trials)
     ts = [np.arange(len(tau))*dt for tau in taus]
     rtis = [t.searchsorted(rt) for (t, rt) in zip(ts, rts)]
-    hacktaus = []
-    for tau in taus:
-        hacktau = tau.copy()
-        hacktau[hacktau < 0] = 1e5
-        hacktaus.append(hacktau)
+
 
     def loss(**kwargs):
         lik = 0
-        for tau, rti in zip(hacktaus, rtis):
+        for tau, rti in zip(taus, rtis):
             #pdf = vdd_decision_pdf(tau, dt, **kwargs, N=N)
             kwargs['dt'] = dt
             pdf = vdd_decision_pdf(VddmParams(**kwargs), tau, N=N)
@@ -170,9 +175,9 @@ def vdd_loss(trials, dt, N=100):
     
     return loss
 
-def test():
+def test_activations():
     dt = 1/30
-    dur = 10
+    dur = 20
     ts = np.arange(0, dur, dt)
     
     tau0 = 3.0
@@ -180,34 +185,69 @@ def test():
     dist = tau0*speed - ts*speed
     tau = dist/speed
 
-    hacktau = tau.copy()
-    #hacktau[hacktau < 0] = 1e5
+    param = dict(
+            dt=dt,
+            std=0.75,
+            damping=1.6,
+            tau_threshold=2.3,
+            scale=1.0,
+            act_threshold=1.0,
+            pass_threshold=0.0
+    )
+    N = 100
+    act, crossing_prob, actgrid = vdd_activation_pdf(VddmParams(**param), tau, N=N)
+    #crossing_prob = vdd_decision_pdf(hacktau, dt, N=500, minact=-10, **param)
+    #plt.plot(actgrid, act[30])
+    #plt.show()
+    dead = np.cumsum(crossing_prob*dt)
+    alive = 1 - dead
+    plt.pcolormesh(ts, actgrid, np.sqrt(act*alive.reshape(-1, 1) + np.finfo(float).eps).T, cmap='plasma', antialiased=True)
+    plt.colorbar()
+    plt.twinx()
+    plt.plot(ts, crossing_prob)
+    plt.show()
+
+def test_blocked():
+    dt = 1/30
+    dur = 20
+    ts = np.arange(0, dur, dt)
+    
+    tau0 = 8.0
+    speed = 20.0
+    dist = tau0*speed - ts*speed
+    tau = dist/speed
+    
+    tau0b = tau0 - 3.0
+
+    distb = tau0b*speed - ts*speed
+    taub = distb/speed
     
     param = dict(
             dt=dt,
-            std=0.5,
-            damping=0.5,
-            tau_threshold=2.5,
+            std=0.75,
+            damping=1.6,
+            tau_threshold=2.3,
             scale=1.0,
-            act_threshold=0.5,
+            act_threshold=1.0,
             pass_threshold=0.0
     )
-    #for std in np.linspace(0.1, 2.0, 1):
-    for N in (50,):
-        #pdf = vdd_pdf(hacktau, dt, **param)
-        act, crossing_prob, actgrid = vdd_activation_pdf(VddmParams(**param), hacktau, N=N)
-        #crossing_prob = vdd_decision_pdf(hacktau, dt, N=500, minact=-10, **param)
-        #plt.plot(actgrid, act[30])
-        #plt.show()
-        dead = np.cumsum(crossing_prob*dt)
-        alive = 1 - dead
-        plt.pcolormesh(ts, actgrid, np.sqrt(act*alive.reshape(-1, 1) + np.finfo(float).eps).T, cmap='plasma', antialiased=True)
-        plt.colorbar()
-        plt.twinx()
-        plt.plot(ts, crossing_prob)
-        plt.show()
+    
+    (act, actb), (crossing_prob, unblock_prob), actgrid = vdd_blocker_activation_pdf(
+            VddmParams(**param), tau, taub, N=200,
+            #minact=-1.0, maxact=1.0
+            )
+    #plt.plot(ts, crossing_prob)
+    #plt.plot(ts, 1 - np.cumsum(unblock_prob))
+    
+    uncrossed = 1.0 - np.cumsum(crossing_prob*dt)
+    act_dens = act*uncrossed.reshape(-1, 1)
+    a = act
+    plt.pcolormesh(ts, actgrid, a.T, vmax=np.max(a[10:]), cmap='jet')
+    plt.twinx()
+    plt.plot(ts, crossing_prob)
+    plt.show()
 
-def test_blocked():
+def benchmark():
     dt = 1/30
     dur = 10
     ts = np.arange(0, dur, dt)
@@ -231,13 +271,26 @@ def test_blocked():
             act_threshold=0.5,
             pass_threshold=0.0
     )
-    
-    (act, actb), (crossing_prob, unblock_prob), actgrid = vdd_blocker_activation_pdf(VddmParams(**param), tau, taub, N=200)
-    plt.plot(ts, crossing_prob)
-    plt.plot(ts, unblock_prob)
+    N = 100
 
+    # Compilation
+    vdd_decision_pdf(VddmParams(**param), tau, N=N)
+    import time
+    trials = 10
+    st = time.perf_counter()
+    for i in range(trials):
+        pdf = vdd_decision_pdf(VddmParams(**param), tau, N=N)
+    dur = time.perf_counter() - st
+    print(f"{dur/trials*1000} ms per run")
+
+    plt.plot(ts, pdf)
     plt.show()
 
+
+
+
 if __name__ == '__main__':
-    test_blocked()
+    #test_activations()
+    #test_blocked()
+    benchmark()
 
