@@ -23,7 +23,6 @@ for trial, traj in all_trajectories.groupby('trial_n'):
     resp = responses[trial]['cross_time'].values
     #tau = traj['tau'].values
     tau = traj['distance'].values/traj['speed'].values
-    tau[tau < 0] = 1e50
     trials[trial] = (tau, resp)
     trial_taus[trial] = tau
 
@@ -37,11 +36,12 @@ for s, sd in all_responses.groupby('subject_id'):
 dt = 1/30
 
 param = dict(
-       std=0.9,
-       damping=0.4,
+       std=1.0,
+       damping=1.0,
        scale=1.0,
-       tau_threshold=4.3,
-       act_threshold=1.0
+       tau_threshold=2.5,
+       act_threshold=1.0,
+       pass_threshold=0.0
        )
 #param = {'std': 0.6970908298337709, 'damping': 0.46041074483528815, 'scale': 1.0, 'tau_threshold': 2.0542953634220624, 'act_threshold': 1.0}
 #param = {'std': 0.6944196353260089, 'damping': 0.4747255460581086, 'scale': 0.7848596401338991, 'tau_threshold': 1.984151857035362, 'act_threshold': 1.0}
@@ -56,16 +56,19 @@ def fit_vdd(trials, dt, init=None):
 
     spec = dict(
         std=            (init['std'], logbarrier),
-        damping=      (init['damping'], logbarrier),
+        damping=        (init['damping'], logbarrier),
         scale=          (init['scale'], logbarrier, fixed),
         tau_threshold=  (init['tau_threshold'], logbarrier),
-        act_threshold=  (init['act_threshold'], logbarrier, fixed)
+        act_threshold=  (init['act_threshold'], logbarrier, fixed),
+        pass_threshold= (0.0, fixed)
             )
     
     loss = vdd_loss(trials, dt)
     def cb(x, f, accept):
         print(f, accept, x)
-    return minimizer(loss, method='powell')(**spec)
+    return minimizer(loss,
+            method='powell'
+            )(**spec)
 
 def fit_tdm(trials, dt):
     spec = dict(
@@ -79,7 +82,7 @@ def fit_tdm(trials, dt):
         lik = 0
         for taus, rts in trials:
             pdf = tdm.predict_decision_times(dt, taus, **kwargs)
-            lik += np.sum(np.log(pdf(rts) + 1e-9))
+            lik += np.sum(np.log(pdf(rts) + np.finfo(float).eps))
         return -lik
     return minimizer(loss, method='powell')(**spec)
 
