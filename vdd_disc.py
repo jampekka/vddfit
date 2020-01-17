@@ -27,44 +27,6 @@ def normsf(*args):
     return 1.0 - normcdf(*args)
 
 @njit(parallel=True)
-def vdd_step_(tau, pacts, pweights, nweights, dt, std, damping, tau_threshold, scale=1.0, act_threshold=1.0):
-    dead = 0.0
-    N = len(pacts)
-    for i in range(N):
-        pact = pacts[i]
-        alpha = 1 - np.exp(-dt/damping)
-        diff_mean = -alpha*pact + dt*np.arctan(scale*(tau - tau_threshold))
-        diff_var = dt*std**2
-        dead += normsf(act_threshold - pact, diff_mean, diff_var)*pweights[i]
-        
-        for j in range(N):
-            diff = pacts[j] - pact
-            diff_prob = normpdf(diff, diff_mean, diff_var)
-            nweights[j] += diff_prob*pweights[i]
-    nweights /= np.sum(nweights)
-    return dead
-
-@njit(parallel=True)
-def vdd_step_old(p, tau, pacts, pweights, nweights):
-    dead = 0.0
-    N = len(pacts)
-    dt = p.dt; std=p.std; damping=p.damping;
-    tau_threshold=p.tau_threshold; scale=p.scale; act_threshold=p.act_threshold
-    for i in range(N):
-        pact = pacts[i]
-        alpha = 1 - np.exp(-dt/damping)
-        diff_mean = -alpha*pact + dt*np.arctan(scale*(tau - tau_threshold))
-        diff_var = dt*std**2
-        dead += normsf(act_threshold - pact, diff_mean, diff_var)*pweights[i]
-        
-        for j in range(N):
-            diff = pacts[j] - pact
-            diff_prob = normpdf(diff, diff_mean, diff_var)
-            nweights[j] += diff_prob*pweights[i]
-    nweights /= np.sum(nweights)
-    return dead
-
-@njit(parallel=True)
 def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
     decided = 0.0
     N = len(acts)
@@ -73,7 +35,7 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
     
     alpha = 1 - np.exp(-dt*damping)
     diff_var = dt*std**2
-    if tau > p.pass_threshold:
+    if tau >= p.pass_threshold:
         diff_mean_tau = dt*np.arctan(scale*(tau - tau_threshold))
     else:
         diff_mean_tau = dt*np.pi/2
@@ -87,8 +49,8 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
             
             # TODO: The probabilities don't sum to one on small da. May be numerical
             #   problems, but may be buggy code. Check especially the boundary stuff!
-            # TODO: This computes every edge cdf twice, whereas one would suffice and
-            #   the boundaries would be handled nicer.
+            # TODO: This computes every edge cdf twice (IN THE MOST INNER LOOP!!),
+            #  whereas one would suffice and the boundaries would be handled nicer.
             if j == 0:
                 trans_prob = normcdf(diff + da/2, diff_mean,  diff_var)
             elif j == N - 1:
@@ -159,30 +121,32 @@ def vdd_decision_pdf(p, taus, N=100, minact=-5.0, maxact=5.0):
         
     return deadpdf/p.dt
 
-
-
 @njit()
-def vdd_decision_pdf_old(taus, dt, std, damping, tau_threshold, scale=1.0, act_threshold=1.0, N=100, minact=-10.0):
-    pacts = np.linspace(minact, act_threshold, N)
-    pweights = np.zeros_like(pacts)
-    pweights[np.searchsorted(pacts, 0.0)] = 1.0
-    pweights /= np.sum(pweights)
-    nweights = np.zeros_like(pweights)
-    #cumalive = np.empty(len(taus))
-    deadpdf = np.empty(len(taus))
-    alive = 1.0
+def vdd_blocker_activation_pdf(p, taus, blocker_taus, N=100, minact=-5.0, maxact=5.0):
+    acts = np.linspace(minact, maxact, N)
+    da = acts[1] - acts[0]
+    weights = np.zeros((len(taus) + 1, N))
+    weights[0, np.searchsorted(acts, 0.0)] = 1.0
+    bweights = weights.copy()
     
-    for i, tau in enumerate(taus):
-        dead = alive*vdd_step(p, tau, pacts, pweights, nweights,
-                dt, std, damping, tau_threshold, scale, act_threshold
-                )
-        alive -= dead
-        deadpdf[i] = dead
+    crossedpdf = np.empty(len(taus))
+    unblockedpdf = np.empty(len(taus))
+    uncrossed = 1.0
+    blocked = 1.0
+
+    for i, (tau, btau) in enumerate(zip(taus, blocker_taus)):
+        gone = 1.0 if btau <= p.pass_threshold else 0.0
+        unblocked = blocked*vdd_step(p, da, btau, acts, bweights[i], bweights[i+1], decision_prob=gone)
+        blocked -= unblocked
         
-        pweights, nweights = nweights, pweights
-        nweights[:] = 0.0
-    
-    return deadpdf/dt
+        crossed = uncrossed*vdd_step(p, da, tau, acts, weights[i], weights[i+1], 1.0 - blocked)
+        uncrossed -= crossed
+        
+        crossedpdf[i] = crossed
+        unblockedpdf[i] = unblocked
+        
+    return (weights[1:], bweights[1:]), (crossedpdf/p.dt, unblockedpdf/p.dt), acts
+
 
 def vdd_loss(trials, dt, N=100):
     taus, rts = zip(*trials)
@@ -243,6 +207,37 @@ def test():
         plt.plot(ts, crossing_prob)
         plt.show()
 
+def test_blocked():
+    dt = 1/30
+    dur = 10
+    ts = np.arange(0, dur, dt)
+    
+    tau0 = 3.0
+    speed = 20.0
+    dist = tau0*speed - ts*speed
+    tau = dist/speed
+    
+    tau0b = tau0 - 0.0
+
+    distb = tau0b*speed - ts*speed
+    taub = distb/speed
+    
+    param = dict(
+            dt=dt,
+            std=0.5,
+            damping=0.5,
+            tau_threshold=2.5,
+            scale=1.0,
+            act_threshold=0.5,
+            pass_threshold=0.0
+    )
+    
+    (act, actb), (crossing_prob, unblock_prob), actgrid = vdd_blocker_activation_pdf(VddmParams(**param), tau, taub, N=200)
+    plt.plot(ts, crossing_prob)
+    plt.plot(ts, unblock_prob)
+
+    plt.show()
+
 if __name__ == '__main__':
-    test()
+    test_blocked()
 

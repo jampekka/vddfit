@@ -46,7 +46,7 @@ param = dict(
 #param = {'std': 0.6970908298337709, 'damping': 0.46041074483528815, 'scale': 1.0, 'tau_threshold': 2.0542953634220624, 'act_threshold': 1.0}
 #param = {'std': 0.6944196353260089, 'damping': 0.4747255460581086, 'scale': 0.7848596401338991, 'tau_threshold': 1.984151857035362, 'act_threshold': 1.0}
 
-loss = vdd_loss(list(trials.values()), dt, N=10)
+loss = vdd_loss(list(trials.values()), dt, N=100)
 liks = []
 
 from kwopt import minimizer, logbarrier, logitbarrier, fixed
