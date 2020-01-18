@@ -1,7 +1,7 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from numba import jit, njit
+from numba import jit, njit, prange
 from collections import namedtuple
 #def njit(*args, **kwargs):
 #    return lambda f: f
@@ -25,11 +25,12 @@ def normpdf(x, m, v):
 def normcdf(x, m, v):
     return (1.0 + math.erf((x - m)/np.sqrt(v*2)))/2.0
 
+
 @njit()
 def normsf(*args):
     return 1.0 - normcdf(*args)
 
-@njit(parallel=True)
+@njit()
 def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
     decided = 0.0
     N = len(acts)
@@ -43,37 +44,18 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
     else:
         diff_mean_tau = dt*np.pi/2
     
-    for i in range(N):
+    for i in prange(N):
         act = acts[i]
         diff_mean = diff_mean_tau - alpha*act
         
-        smallenough = 1.0
-        bigenough = 1.0
+        too_small = 0.0
         for j in range(N - 1):
             diff = acts[j] - act
             
-            # TODO: The probabilities don't sum to one on small da. May be numerical
-            #   problems, but may be buggy code. Check especially the boundary stuff!
-            
-            """
-            if j == 0:
-                trans_prob = normcdf(diff + da/2, diff_mean,  diff_var)
-            elif j == N - 1:
-                trans_prob = 1.0 - normcdf(diff - da/2, diff_mean, diff_var)
-            else:
-                # act + N(dm, dv) < acts[j] + da/2
-                # N(dm, dv) < acts[j] - act + da/2
-                smallenough = normcdf(diff + da/2, diff_mean,  diff_var)
-                # act + N(dm, dv) > acts[j] - da/2
-                # N(dm, dv) > acts[j] - act - da/2
-                bigenough = 1.0 - normcdf(diff - da/2, diff_mean, diff_var)
-                trans_prob = bigenough*smallenough
-            """
-            
-            smallenough = normcdf(diff + da/2, diff_mean,  diff_var)
-            nweights[j] += smallenough*bigenough*pweights[i]
-            bigenough = 1.0 - smallenough
-        nweights[-1] += pweights[i]*bigenough
+            small_enough = normcdf(diff + da/2, diff_mean,  diff_var)
+            nweights[j] += (small_enough - too_small)*pweights[i]
+            too_small = small_enough
+        nweights[-1] += (1.0 - small_enough)*pweights[i]
     
     # Doing the decisions after normalizing due to the numerical(?) issues
     nweights /= np.sum(nweights)
@@ -87,8 +69,8 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
         bindec = decision_prob*share_over*nweights[i]
         nweights[i] -= bindec
         decided += bindec
-    nweights /= np.sum(nweights)
 
+    nweights[:] /= np.sum(nweights)
     return decided
 
 @njit()
