@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
-from vdd_disc import vdd_loss, vdd_decision_pdf, VddmParams
+from vdd_disc import vdd_loss, vdd_decision_pdf, VddmParams, vdd_blocker_loss, vdd_blocker_decision_pdf
 import tdm
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import scipy.optimize
 from pprint import pprint
+import hikersim
 
 all_trajectories = pd.read_csv('d2p_trajectories.csv')
 all_responses = pd.read_csv('d2p_cross_times_uk.csv')
@@ -69,6 +70,24 @@ def fit_vdd(trials, dt, init=None):
     return minimizer(loss,
             method='powell'
             )(**spec)
+    
+def fit_blocker_vdd(trials, dt, init=None):
+    if init is None:
+        init = param.copy()
+
+    spec = dict(
+        std=            (init['std'], logbarrier),
+        damping=        (init['damping'], logbarrier),
+        scale=          (init['scale'], logbarrier, fixed),
+        tau_threshold=  (init['tau_threshold'], logbarrier),
+        act_threshold=  (init['act_threshold'], logbarrier,fixed),
+        pass_threshold= (0.0,)
+            )
+    
+    loss = vdd_blocker_loss(trials, dt)
+    return minimizer(loss,
+            method='powell',
+            )(**spec)
 
 def fit_tdm(trials, dt):
     spec = dict(
@@ -86,6 +105,61 @@ def fit_tdm(trials, dt):
         return -lik
     return minimizer(loss, method='powell')(**spec)
 
+def fit_hiker():
+    data = pd.read_csv('hiker_cts.csv')
+    data['has_hmi'] = data.braking_condition > 2
+
+    data = data.query('braking_condition == 1')
+    
+    leader_start = 100
+    DT = 1/30
+    trials = []
+    for g, d in data.groupby(['time_gap', 'speed', 'is_braking', 'has_hmi']):
+        time_gap, speed, is_braking, has_hmi = g
+        
+        starttime = -leader_start/speed
+        endtime = starttime + 20
+        if not is_braking:
+            endtime = time_gap
+
+        ts = np.arange(starttime, endtime, DT)
+        lag_x, lag_speed, (t_brake, t_stop) = hikersim.simulate_trajectory(ts, time_gap, speed, is_braking)
+
+        
+        tau_lag = -lag_x/lag_speed
+        lead_dist = leader_start - (ts - starttime)*speed
+        tau_lead = lead_dist/speed
+        
+        crossing_times = d.crossing_time.values - starttime
+        crossing_times[~np.isfinite(crossing_times)] = np.inf
+        trials.append((tau_lag, tau_lead, crossing_times))
+
+    fit = fit_blocker_vdd(trials, DT)
+    print(fit)
+    
+    output = PdfPages("hikerfit.pdf")
+    def show():
+        output.savefig()
+        plt.close()
+    
+    for tau, btau, cts in trials:
+        ts = np.linspace(0, len(tau)*DT, len(tau))
+        param = fit.kwargs
+        param['dt'] = DT
+        pdf = vdd_blocker_decision_pdf(VddmParams(**param), tau, btau)
+        
+        plt.plot(ts, tau)
+        plt.twinx()
+        plt.plot(ts, pdf(ts)/(1 - pdf(np.inf)), label=f"VDDM, noncrossing {100*pdf(np.inf):.0f}%")
+        noncrossing = np.sum(~np.isfinite(cts))/len(cts)
+        plt.hist(cts[np.isfinite(cts)], bins=np.arange(0, ts[-1], 0.2), density=True,
+            label=f"Empirical, noncrossing {100*noncrossing:.0f}%")
+        plt.axvline(scipy.interpolate.interp1d(btau, ts)(0), color='black', label='Leader passed')
+        plt.legend()
+
+        show()
+    
+    output.close()
 
 
 def singlefit():
@@ -183,4 +257,5 @@ def ebfit():
     pass
 
 if __name__ == '__main__':
-    singlefit()
+    #singlefit()
+    fit_hiker()
