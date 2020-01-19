@@ -57,10 +57,10 @@ def fit_vdd(trials, dt, init=None):
     spec = dict(
         std=            (init['std'], logbarrier),
         damping=        (init['damping'], logbarrier),
-        scale=          (init['scale'], logbarrier, fixed),
+        scale=          (init['scale'], logbarrier,),
         tau_threshold=  (init['tau_threshold'], logbarrier),
-        act_threshold=  (init['act_threshold'], logbarrier, fixed),
-        pass_threshold= (0.0, fixed)
+        act_threshold=  (init['act_threshold'], logbarrier,),
+        pass_threshold= (0.0,)
             )
     
     loss = vdd_loss(trials, dt)
@@ -85,7 +85,6 @@ def fit_tdm(trials, dt):
             lik += np.sum(np.log(pdf(rts) + np.finfo(float).eps))
         return -lik
     return minimizer(loss, method='powell')(**spec)
-
 
 
 

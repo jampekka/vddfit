@@ -1,7 +1,7 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from numba import jit, njit, prange
+from numba import jit, njit, prange, vectorize, float64
 from collections import namedtuple
 #def njit(*args, **kwargs):
 #    return lambda f: f
@@ -18,19 +18,21 @@ DEFAULT_MAXACT = 3.0
 
 @njit()
 def normpdf(x, m, v):
-    return np.exp(-(m - x)**2/(2*v))/np.sqrt(2*np.pi*v)
+    return np.exp(-(x - m)**2/(2*v))/np.sqrt(2*np.pi*v)
 
-# TODO: The cdf and sf computations should be numerically better!
-@njit()
+@vectorize()
 def normcdf(x, m, v):
     return (1.0 + math.erf((x - m)/np.sqrt(v*2)))/2.0
 
+@vectorize()
+def stdnormcdf(x):
+    return 0.5 + math.erf(x)/2.0
 
 @njit()
 def normsf(*args):
     return 1.0 - normcdf(*args)
 
-@njit()
+@njit(parallel=False, fastmath=True)
 def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
     decided = 0.0
     N = len(acts)
@@ -44,24 +46,23 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
     else:
         diff_mean_tau = dt*np.pi/2
     
-    for i in prange(N):
-        act = acts[i]
-        diff_mean = diff_mean_tau - alpha*act
-        
+    hacks = math.sqrt(2.0*diff_var)
+    for fr in range(N):
         too_small = 0.0
-        for j in range(N - 1):
-            diff = acts[j] - act
-            
-            small_enough = normcdf(diff + da/2, diff_mean,  diff_var)
-            nweights[j] += (small_enough - too_small)*pweights[i]
+        frw = pweights[fr]
+        act_fr = acts[fr]
+        diff_mean = diff_mean_tau - alpha*act_fr
+        for to in range(N - 1):
+            diff = acts[to] - act_fr
+            small_enough = stdnormcdf((diff + da/2 - diff_mean)/hacks)
+            nweights[to] += (small_enough - too_small)*frw
             too_small = small_enough
-        nweights[-1] += (1.0 - small_enough)*pweights[i]
+        nweights[-1] += (1.0 - small_enough)*frw
     
-    # Doing the decisions after normalizing due to the numerical(?) issues
-    nweights /= np.sum(nweights)
+    # TODO: No need to do the whole loop, but one more loop here
+    # doesn't matter so much
     for i in range(N):
         a = acts[i]
-        if a < p.act_threshold - da/2: continue # TODO: Optimize
         # Assume the activations are uniformly distributed within a
         # bin. Important for getting continuous derivatives w.r.t. act_threshold
         share_over = (a - p.act_threshold)/da + 0.5
@@ -69,8 +70,7 @@ def vdd_step(p, da, tau, acts, pweights, nweights, decision_prob=1.0):
         bindec = decision_prob*share_over*nweights[i]
         nweights[i] -= bindec
         decided += bindec
-
-    nweights[:] /= np.sum(nweights)
+    nweights /= np.sum(nweights)
     return decided
 
 @njit()
@@ -229,6 +229,35 @@ def test_blocked():
     plt.plot(ts, crossing_prob)
     plt.show()
 
+def test_gridsize():
+    dt = 1/30
+    dur = 20
+    ts = np.arange(0, dur, dt)
+    
+    tau0 = 3.0
+    speed = 20.0
+    dist = tau0*speed - ts*speed
+    tau = dist/speed
+    
+    param = dict(
+            dt=dt,
+            std=0.75,
+            damping=1.6,
+            tau_threshold=2.3,
+            scale=1.0,
+            act_threshold=1.0,
+            pass_threshold=0.0
+    )
+    
+    for N in [25, 50, 100, 200]:
+        crossing_prob = vdd_decision_pdf(VddmParams(**param), tau, N=N)
+        plt.plot(ts, crossing_prob, label=N)
+    plt.legend()
+    plt.show()
+    
+
+
+
 def benchmark():
     dt = 1/30
     dur = 10
@@ -274,5 +303,6 @@ def benchmark():
 if __name__ == '__main__':
     #test_activations()
     #test_blocked()
-    benchmark()
+    #benchmark()
+    test_gridsize()
 
