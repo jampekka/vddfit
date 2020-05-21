@@ -50,13 +50,46 @@ vddm_params = {
     
     # Constant speed only, with fixed keio
     #'unified': {'std': 0.726497450046289, 'damping': 0.5828631499887685, 'scale': 0.5723807755997636, 'tau_threshold': 2.8905817957021087, 'act_threshold': 1.5901754927214726, 'pass_threshold': 1.3446477949026612, 'dot_coeff': 0, 'ehmi_coeff': 0, 'dist_coeff': 0.342317232657446}
-    'unified': {'std': 0.7428544072653329, 'damping': 0.6370630838672563, 'scale': 0.6968811603124203, 'tau_threshold': 3.1131673216811158, 'act_threshold': 1.4700000000001503, 'pass_threshold': 1.2087810735174502, 'dot_coeff': 0, 'ehmi_coeff': 0, 'dist_coeff': 0.3461715480587001}
+    #'unified': {'std': 0.7428544072653329, 'damping': 0.6370630838672563, 'scale': 0.6968811603124203, 'tau_threshold': 3.1131673216811158, 'act_threshold': 1.4700000000001503, 'pass_threshold': 1.2087810735174502, 'dot_coeff': 0, 'ehmi_coeff': 0, 'dist_coeff': 0.3461715480587001}
+    #'unified': {'std': 0.7414992886209263, 'damping': 0.8288464497288173, 'scale': 0.8566811869814253, 'tau_threshold': 2.885489150938972, 'act_threshold': 1.3459994493368028, 'pass_threshold': 1.0111792830817665, 'dot_coeff': 0, 'ehmi_coeff': 0, 'dist_coeff': 0.3450656425781272},
+    #'unified': {'std': 1.0, 'damping': 0.5, 'scale': 1.0, 'tau_threshold': 2.0, 'act_threshold': 1.0, 'pass_threshold': 1.0, 'dot_coeff': 0, 'ehmi_coeff': 0, 'dist_coeff': 0.0},
+    # With new tau handling of the blocked trials
+    #'unified': {'std': 0.7901846314196423, 'damping': 0.746895906952635, 'scale': 0.6764575296340535, 'tau_threshold': 2.234650305320731, 'act_threshold': 1.4700000005004261, 'pass_threshold': 1.1690402840993372, 'dot_coeff': 0, 'ehmi_coeff': 0, 'dist_coeff': 0.33280717909528784}
+    #'unified': {'std': 0.7537887519909162, 'damping': 1.041642847452121, 'scale': 0.7998208638391029, 'tau_threshold': 2.233153875074307, 'act_threshold': 1.2299999999999638, 'pass_threshold': 0.9311804995030238, 'dot_coeff': 0, 'ehmi_coeff': 0, 'dist_coeff': 0.42475470128274023}
+    
+    # First iteration with only free dot_coeff
+    #'unified': {'std': 0.7537887519909162, 'damping': 1.041642847452121, 'scale': 0.7998208638391029, 'tau_threshold': 2.233153875074307, 'act_threshold': 1.2299999999999638, 'pass_threshold': 0.9311804995030238, 'dot_coeff': 1.2682736344877221, 'ehmi_coeff': 0, 'dist_coeff': 0.42475470128274023},
+    #'unified': {'std': 0.7537887519909162, 'damping': 1.041642847452121, 'scale': 0.7998208638391029, 'tau_threshold': 2.233153875074307, 'act_threshold': 1.2299999999999638, 'pass_threshold': 0.9311804995030238, 'dot_coeff': 1.2682361623624137, 'ehmi_coeff': 0.23947510490243312, 'dist_coeff': 0.42475470128274023}
+
+    # Some mid of the run with full free parameterization
+    #'unified': {'std': 0.7371838271814073, 'damping': 1.0385821829578816, 'scale': 0.6629842162971978, 'tau_threshold': 2.185455435064728, 'act_threshold': 1.2251442083024302, 'pass_threshold': 0.9661728261675379, 'dot_coeff': 1.2584974323810783, 'ehmi_coeff': 0.25238577013860924, 'dist_coeff': 0.4074043889521971}
+    #'unified': {'std': 0.7424372666605178, 'damping': 0.9754312981640063, 'scale': 0.5909885393630063, 'tau_threshold': 2.1852519821467973, 'act_threshold': 1.2161517846923484, 'pass_threshold': 0.9655341477899285, 'dot_coeff': 1.2185182224709552, 'ehmi_coeff': 0.28129788574820386, 'dist_coeff': 0.4048724270579432}
+    #'unified': {'std': 0.7210824769140926, 'damping': 0.8399760920484578, 'scale': 0.473255166371315, 'tau_threshold': 2.297556364408928, 'act_threshold': 1.1699999999997273, 'pass_threshold': 1.0015211556554193, 'dot_coeff': 1.2037864158316136, 'ehmi_coeff': 0.3256627194920388, 'dist_coeff': 0.37782960124387194}
+    # Getting weird again...
+    #'unified': {'std': 0.680663236276354, 'damping': 4.2463855335533245e-27, 'scale': 0.17682242248357646, 'tau_threshold': 3.4820810663186976, 'act_threshold': 1.1700000042206278, 'pass_threshold': 1.586319158425163, 'dot_coeff': 4.4736120544930085, 'ehmi_coeff': 0.6790887932271091, 'dist_coeff': 0.2904648152490044}
+    #'unified': {'std': 0.8718651252295531, 'damping': 0.8228789721995772, 'scale': 0.6318861583019705, 'tau_threshold': 1.757234744466726, 'act_threshold': 1.5365982573580041, 'pass_threshold': 1.0460094109297184, 'dot_coeff': 1.427384168028474, 'ehmi_coeff': 0.47988147900383527, 'dist_coeff': 0.8871239618589292}
 
     #'unified': {'std': 0.6710851225907791, 'damping': 1.3241814734998518, 'scale': 0.8998325180482395, 'tau_threshold': 2.671709646930018, 'act_threshold': 0.9900000000051525, 'pass_threshold': 0.7180524609680158, 'dot_coeff': 1.2894392651525743, 'ehmi_coeff': 0.2676048639627061, 'dist_coeff': 0.21231749517573556}
     #'unified': {'std': 0.6710851225907791, 'damping': 1.3241814734998518, 'scale': 0.8998325180482395, 'tau_threshold': 2.671709646930018, 'act_threshold': 0.9900000000051525, 'pass_threshold': 0.7180524609680158, 'dot_coeff': 1.288879923787391, 'ehmi_coeff': 0.27558465363024653, 'dist_coeff': 0.21231749517573556},
 
     #'unified': {'std': 0.6603592740326082, 'damping': 1.1052455453328458, 'scale': 0.5141555441698754, 'tau_threshold': 2.681525975300402, 'act_threshold': 0.9900000000012792, 'pass_threshold': 0.7843853329736621, 'dot_coeff': 1.2279377218791985, 'ehmi_coeff': 0.373094808195673, 'dist_coeff': 0.20647930981743343}
     #'unified': {'std': 0.69746300229369, 'damping': 0.46613114379319825, 'scale': 0.3853993922254003, 'tau_threshold': 3.6592793898164855, 'act_threshold': 1.3499999966920435, 'pass_threshold': 1.31085488, 'dot_coeff': 2.68806523, 'ehmi_coeff': 0.42923702, 'dist_coeff': 0.27769681}
+    
+    # KEIO-only, constant speed only
+    #'unified':  {'std': 0.6977129806038627, 'damping': 1.3782352987426398, 'scale': 0.8429963353952452, 'tau_threshold': 1.9035952542119765, 'act_threshold': 0.984344221363203, 'pass_threshold': -0.009199830983710197, 'dot_coeff': 1e-9, 'ehmi_coeff': 0, 'dist_coeff': 0.6488016222745131}
+    # dot_coeff fitted independently
+    #'unified': {'std': 0.6977129806038627, 'damping': 1.3782352987426398, 'scale': 0.8429963353952452, 'tau_threshold': 1.9035952542119765, 'act_threshold': 0.984344221363203, 'pass_threshold': -0.009199830983710197, 'dot_coeff': 0.5400225892173597, 'ehmi_coeff': 0, 'dist_coeff': 0.6488016222745131}
+    # Full free param fit to KEIO
+    #'unified': {'std': 0.6884581019986444, 'damping': 1.5507755865637733, 'scale': 0.6014947680979241, 'tau_threshold': 1.786246422626752, 'act_threshold': 0.9164873080720805, 'pass_threshold': -0.07068913423131726, 'dot_coeff': 0.6434015648391005, 'ehmi_coeff': 0, 'dist_coeff': 0.777781366472576}
+    'unified': {'std': 0.6880891949348873, 'damping': 1.5665591519741577, 'scale': 0.6037404637215124, 'tau_threshold': 1.7835700314266882, 'act_threshold': 0.9151360985627606, 'pass_threshold': -0.07068913421388402, 'dot_coeff': 0.6411745992873026, 'ehmi_coeff': 0.5, 'dist_coeff': 0.7762157904579379}
+    
+    # Fit only pass threshold to hiker
+    #'unified': {'std': 0.6880891949348873, 'damping': 1.5665591519741577, 'scale': 0.6037404637215124, 'tau_threshold': 1.7835700314266882, 'act_threshold': 0.9151360985627606, 'pass_threshold': 0.6526031285284474, 'dot_coeff': 0.6411745992873026, 'ehmi_coeff': 0.5, 'dist_coeff': 0.7762157904579379}
+    
+    # Some mid-of-optimization stuff
+    #'unified': {'std': 0.6378917671331962, 'damping': 1.3094120471486868, 'scale': 0.5366755373566473, 'tau_threshold': 2.5449256246780716, 'act_threshold': 0.9328895826640872, 'pass_threshold': 0.38511415788509556, 'dot_coeff': 0.9675905511781857, 'ehmi_coeff': 0.35698493728498476, 'dist_coeff': 0.04917540839195181}
+    #'unified': {'std': 0.6569462641896981, 'damping': 0.8991304858288773, 'scale': 0.448500772120246, 'tau_threshold': 2.836317012102674, 'act_threshold': 1.0499930079742774, 'pass_threshold': 0.1606736448009839, 'dot_coeff': 1.5213214576379954, 'ehmi_coeff': 0.41887059935472765, 'dist_coeff': 0.3172478077457032}
+    #'unified': {'std': 0.7078287012725756, 'damping': 0.7990847222026269, 'scale': 0.5870407478850296, 'tau_threshold': 3.1652111466428825, 'act_threshold': 1.173541779637534, 'pass_threshold': 0.2342047425801052, 'dot_coeff': 2.0669310844752853, 'ehmi_coeff': 0.3754702100469714, 'dist_coeff': 0.38305142824262445}
     }
 tdm_params = {
     'keio_uk': {'thm': 1.4822542031746122, 'ths': 0.4160580398784046, 'lagm': -0.018037627273216346, 'lags': 0.5394395959794362, 'pass_th': -0.07255736056398886},
@@ -72,10 +105,24 @@ tdm_params = {
 }
 
 
-def mangle_tau(traj, dist_coeff=0.0, dot_coeff=0.0, ehmi_coeff=0.0, **kwargs):
-    tau = traj['tau']
-    prior_tau = traj['distance']/(50/3.6)
-    return dist_coeff*(prior_tau - tau) + tau + dot_coeff*(traj['tau_dot'] + 1) + ehmi_coeff*traj['ehmi']
+def mangle_tau(traj, traj_b=None, dist_coeff=0.0, dot_coeff=0.0, ehmi_coeff=0.0, **kwargs):
+    distance = traj['distance'].copy()
+    tau = distance/traj['speed']
+    tau_dot = np.gradient(tau, DT)
+    
+    """
+    if traj_b is not None:
+        not_passed = traj_b["distance"] > 0
+        distance[not_passed] = (distance - traj_b["distance"])[not_passed]
+    
+        tau = distance/traj['speed']
+        #tau_dot = np.gradient(tau, DT)
+    """
+    #tau_dot = traj['tau_dot']
+    prior_tau = distance/(50/3.6)
+    
+    tau = dist_coeff*(prior_tau - tau) + tau + dot_coeff*(tau_dot + 1) + ehmi_coeff*traj['ehmi']
+    return tau
 
 def model_params(params):
     return {k: v for k, v in params.items() if k not in ('dist_coeff', 'dot_coeff', 'ehmi_coeff')}
@@ -135,7 +182,7 @@ def fit_blocker_vdd(trials, dt, init=vddm_params['unified']):
         model = Vddm(dt=dt, **model_params(params))
         #print(model.tau_threshold)
         for traj, traj_b, cts in trials:
-            tau = mangle_tau(traj, **params)
+            tau = mangle_tau(traj, traj_b, **params)
             tau_b = mangle_tau(traj_b, **params)
             pdf = model.blocker_decisions(actgrid, tau, tau_b)
             myloss = pdf.loglikelihood(cts - traj.time[0], slack=np.finfo(float).eps)
@@ -188,7 +235,7 @@ def fit_blocker_tdm(trials, dt, init=tdm_params['unified']):
         lik = 0
         model = Tdm(**model_params(params))
         for traj, traj_b, rts in trials:
-            tau = mangle_tau(traj, **params)
+            tau = mangle_tau(traj, traj_b, **params)
             tau_b = mangle_tau(traj_b, **params)
             pdf = model.blocker_decisions(tau, tau_b, dt)
             lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
@@ -205,15 +252,15 @@ def fit_blocker_tdm(trials, dt, init=tdm_params['unified']):
 
 def fit_unified_vddm(trials, dt, init=vddm_params['unified']):
     spec = dict(
-        std=            (init['std'], logbarrier,),
-        damping=        (init['damping'], logbarrier,),
-        scale=          (init['scale'], logbarrier,),
+        std=            (init['std'], logbarrier,fixed),
+        damping=        (init['damping'], logbarrier,fixed),
+        scale=          (init['scale'], logbarrier,fixed),
         tau_threshold=  (init['tau_threshold'], logbarrier,fixed),
-        act_threshold=  (init['act_threshold'], logbarrier,),
-        pass_threshold= (init['pass_threshold'],fixed),
-        dot_coeff=      (init['dot_coeff'],),
-        ehmi_coeff=      (init['ehmi_coeff'],),
-        dist_coeff=     (init['dist_coeff'],)
+        act_threshold=  (init['act_threshold'], logbarrier,fixed),
+        pass_threshold= (init['pass_threshold'],),
+        dot_coeff=      (init['dot_coeff'],logbarrier,fixed),
+        ehmi_coeff=      (init['ehmi_coeff'],fixed),
+        dist_coeff=     (init['dist_coeff'],fixed)
             )
     
     bestlik = -np.inf
@@ -223,7 +270,7 @@ def fit_unified_vddm(trials, dt, init=vddm_params['unified']):
         for trial in trials:
             if len(trial) == 3:
                 traj, traj_b, rts = trial
-                tau = mangle_tau(traj, **params)
+                tau = mangle_tau(traj, traj_b, **params)
                 tau_b = mangle_tau(traj_b, **params)
                 pdf = model.blocker_decisions(actgrid, tau, tau_b)
                 lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
@@ -235,6 +282,7 @@ def fit_unified_vddm(trials, dt, init=vddm_params['unified']):
         nonlocal bestlik
         if lik > bestlik:
             bestlik = lik
+            print(params)
             print(lik)
         return -lik
     
@@ -242,6 +290,29 @@ def fit_unified_vddm(trials, dt, init=vddm_params['unified']):
         print(kwopt.unmangle(spec, x))
         print(f, accept)
     
+    """
+    from skopt import gp_minimize, forest_minimize, gbrt_minimize
+    from skopt.utils import use_named_args
+    from skopt.space import Real
+    dims = [
+        Real(name="std", low=0, high=2.0),
+        Real(name="damping", low=1e-30, high=(1 - 1e-30)),
+        Real(name="scale", low=0, high=2.0),
+        Real(name="tau_threshold", low=0.0, high=3.0),
+        Real(name="act_threshold", low=0.0, high=2.0),
+        Real(name="pass_threshold", low=0.0, high=2.0),
+        Real(name="dot_coeff", low=0.0, high=2.0),
+        Real(name="ehmi_coeff", low=0.0, high=1.0),
+        Real(name="dist_coeff", low=0.0, high=1.0),
+            ]
+    x0 = [init[d.name] for d in dims]
+    wtf = forest_minimize(use_named_args(dimensions=dims)(loss), dims, verbose=True, n_calls=1000,
+            #x0=x0,
+            acq_func='PI',
+            )
+    print(wtf)
+    return
+    """
     return minimizer(loss, scipy.optimize.basinhopping, T=10.0,
             callback=cb, minimizer_kwargs={'method': 'powell'}
             #method='powell', #options={'maxiter': 1}
@@ -275,7 +346,7 @@ def fit_unified_vddm_consttau(trials, dt, init=vddm_params['unified']):
         for trial in trials:
             if len(trial) == 3:
                 traj, traj_b, rts = trial
-                tau = mangle_tau(traj, **params)
+                tau = mangle_tau(traj, traj_b, **params)
                 tau_b = mangle_tau(traj_b, **params)
                 pdf = model.blocker_decisions(actgrid, tau, tau_b)
                 lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
@@ -287,15 +358,14 @@ def fit_unified_vddm_consttau(trials, dt, init=vddm_params['unified']):
         nonlocal bestlik
         if lik > bestlik:
             bestlik = lik
-            #print(params)
-            print(lik)
+            print(lik, params)
         return -lik
     
     def cb(x, f, accept):
         print(kwopt.unmangle(spec, x))
         print(f, accept)
     
-    return minimizer(loss, scipy.optimize.basinhopping, T=10.0,
+    return minimizer(use_named_args(loss), scipy.optimize.basinhopping, T=10.0,
             callback=cb, minimizer_kwargs={'method': 'powell'}
             #method='powell', #options={'maxiter': 1}
             )(**spec)
@@ -319,7 +389,7 @@ def fit_unified_tdm(trials, dt, init=tdm_params['unified']):
         for trial in trials:
             if len(trial) == 3:
                 traj, traj_b, rts = trial
-                tau = mangle_tau(traj, **params)
+                tau = mangle_tau(traj, traj_b, **params)
                 tau_b = mangle_tau(traj_b, **params)
                 pdf = model.blocker_decisions(tau, tau_b, dt)
                 lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
@@ -387,17 +457,18 @@ def get_keio_trials(country='uk', include_constants=True, include_decels=True, i
 
 def fit_hiker_and_keio():
     subset = dict(
-        include_ehmi        = True,
-        include_decels      = False,
+        include_ehmi        = False,
+        include_decels      = True,
         include_constants   = True
         )
-    trials = get_hiker_trials(**subset) + get_keio_trials(**subset)
+    trials = get_hiker_trials(**subset) #+ get_keio_trials(**subset)
+    #trials = get_keio_trials(**subset)
 
     #fit = fit_unified_tdm(trials, DT)
     #print(fit)
     
-    #fit = fit_unified_vddm(trials, DT)
-    fit = fit_unified_vddm_consttau(trials, DT)
+    fit = fit_unified_vddm(trials, DT)
+    #fit = fit_unified_vddm_consttau(trials, DT)
     print(fit)
 
     
@@ -582,7 +653,7 @@ def plot_keio(country='uk'):
             plt.plot(ts, ecdf(tr)(ts)*100, label=f'Empirical, d0={traj.distance[0]:.1f} m')
             plt.title(f"Keio {country} trial type")
             plt.plot(ts, np.cumsum(np.array(vddm_pdf.ps)*dt)*100, 'k', label='VDDM')
-            plt.plot(ts, np.cumsum(np.array(tdm_pdf.ps)*dt)*100, 'k--', label='TDM')
+            #plt.plot(ts, np.cumsum(np.array(tdm_pdf.ps)*dt)*100, 'k--', label='TDM')
             plt.legend()
             plt.xlim(ts[0], ts[-1])
             plt.ylim(-1, 101)
@@ -701,10 +772,10 @@ def plot_hiker():
             tr = trial['crossing_times']
             
             p = vddm_params['unified']
-            vdd_taus = mangle_tau(trial['traj'], **p), mangle_tau(trial['traj_lead'], **p)
+            vdd_taus = mangle_tau(trial['traj'], trial['traj_lead'], **p), mangle_tau(trial['traj_lead'], **p)
             vddm_pdf = vddm.blocker_decisions(actgrid, *vdd_taus)
             p = tdm_params['unified']
-            tdm_taus = mangle_tau(trial['traj'], **p), mangle_tau(trial['traj_lead'], **p)
+            tdm_taus = mangle_tau(trial['traj'], trial['traj_lead'], **p), mangle_tau(trial['traj_lead'], **p)
             tdm_pdf = tdm.blocker_decisions(*tdm_taus, dt)
             
             allcts.append(tr[np.isfinite(tr)])
@@ -769,7 +840,7 @@ def plot_hiker():
     plt.xlabel('Measured mean crossing time (seconds)')
     plt.ylabel('Predicted mean crossing time (seconds)')
     plt.axis('equal')
-    plt.show()
+    show()
     
     allcts = np.concatenate(allcts)
     allt = (np.concatenate([i.x for i in allpreds]))
@@ -784,12 +855,12 @@ def plot_hiker():
     plt.legend()
     plt.xlabel('Time (seconds)')
     plt.ylabel('Crossing probability density')
-    plt.show()
+    show()
     pdf.close()
     
 DT = 1/30
 leader_start = 100
-vehicle_length = 0
+vehicle_length = 5.0
 def get_trajectory(time_gap, speed, is_braking, has_hmi, duration=20, end_at_passed=True, **kwargs):
     starttime = -leader_start/speed
     endtime = starttime + duration
@@ -799,10 +870,9 @@ def get_trajectory(time_gap, speed, is_braking, has_hmi, duration=20, end_at_pas
     ts = np.arange(starttime, endtime, DT)
     lag_x, lag_speed, (t_brake, t_stop) = hikersim.simulate_trajectory(ts, time_gap, speed, is_braking, **kwargs)
 
-    
     tau_lag = -lag_x/lag_speed
     tau_lag[~np.isfinite(tau_lag)] = 1e9
-    lead_dist = leader_start - (ts - starttime)*speed + vehicle_length
+    lead_dist = leader_start - (ts - starttime)*speed# + vehicle_length
     tau_lead = lead_dist/speed
     tau_lead[~np.isfinite(tau_lead)] = 1e9
     
@@ -1070,8 +1140,8 @@ def plot_sample_trials():
 
 if __name__ == '__main__':
     #plot_hiker()
+    plot_keio('uk')
     #plot_keio('japan')
-    #plot_keio('uk')
     #print("keiouk")
     #fit_keio('uk')
     #print("keiojapan")
@@ -1082,4 +1152,4 @@ if __name__ == '__main__':
     #plot_sample_trials()
     #plot_schematic()
     #plot_keio_schematics()
-    fit_hiker_and_keio()
+    #fit_hiker_and_keio()
