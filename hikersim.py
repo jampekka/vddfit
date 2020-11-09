@@ -29,7 +29,7 @@ def simulate_trajectory(t, time_gap, speed, braking, x_stop=x_stop, x_brake=x_br
         v = np.repeat(speed, len(t))
         return x, v, (np.inf, np.inf)
     
-    a, t_brake, t_stop = braking_spec(time_gap, speed)
+    a, t_brake, t_stop = braking_spec(time_gap, speed, x_stop=x_stop, x_brake=x_brake)
 
     v = np.zeros(len(t))
 
