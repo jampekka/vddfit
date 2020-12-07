@@ -125,8 +125,23 @@ vddm_params = {
     #'unified': {'std': 0.656377694293709, 'damping': 1.122737257849244, 'scale': 0.46737924590077873, 'tau_threshold': 2.4978711105790845, 'act_threshold': 0.943499017711252, 'pass_threshold': 0.4373563301212072, 'dot_coeff': 0.9790717773232571, 'ehmi_coeff': 0.3569624118902206, 'dist_coeff': 0.21717397761054827}
 
     # Full Keio, first basinghopping iteration
-    'keio_uk': {'std': 0.5343251552162854, 'damping': 2.582538225032225, 'scale': 0.561655673298275, 'tau_threshold': 1.183889032468715, 'act_threshold': 0.6971501469537572, 'pass_threshold': -0.17627817652058925, 'dot_coeff': 0.4878925491203472, 'ehmi_coeff': 0.0, 'dist_coeff': 0.7701321073773191}, #399.6714197520489
+    #'keio_uk': {'std': 0.5343251552162854, 'damping': 2.582538225032225, 'scale': 0.561655673298275, 'tau_threshold': 1.183889032468715, 'act_threshold': 0.6971501469537572, 'pass_threshold': -0.17627817652058925, 'dot_coeff': 0.4878925491203472, 'ehmi_coeff': 0.0, 'dist_coeff': 0.7701321073773191}, #399.6714197520489
     
+    # Full Keio with new time constant formulation and no unnecessary logbarriers.
+    # WEIRD!!!
+    #'keio_uk': {'std': 0.6596074501365182, 'damping': 8.050502783469992e+205, 'scale': 0.3074943776061263, 'tau_threshold': 2.196541120462038, 'act_threshold': 1.0, 'pass_threshold': 0.01802908773814163, 'dot_coeff': -0.945639683315949, 'ehmi_coeff': 0.0, 'dist_coeff': 0.4546431509219718}, # -397.04508957804666
+    
+    # Full Keio basinhopping with no unnecessary logbarriers and fixed act_threshold
+    #'keio_uk': {'std': 0.7683371967321696, 'damping': 1.2361164021518585, 'scale': 0.6022794383801227, 'tau_threshold': 2.0764018144820233, 'act_threshold': 1.0, 'pass_threshold': -0.06978790574678727, 'dot_coeff': 0.716516036380512, 'ehmi_coeff': 0.0, 'dist_coeff': 0.7552155764222939}, # -401.51522150074277
+    # Full Keio basinhopping with 14 iters with no unnecessary logbarriers
+    #'keio_uk': {'std': 0.6743200476268959, 'damping': 1.7375574919520165, 'scale': 0.582044434824494, 'tau_threshold': 1.7784420654168027, 'act_threshold': 0.8623734414082952, 'pass_threshold': -0.14332747696286155, 'dot_coeff': 0.6171365192574244, 'ehmi_coeff': 0.0, 'dist_coeff': 0.7537096443402346}, # -400.9477469586112
+    # More iterations to above
+    #'keio_uk': {'std': 0.6180859388145251, 'damping': 1.926971433004895, 'scale': 0.6020413272036864, 'tau_threshold': 1.5244315485778317, 'act_threshold': 0.8188728265419005, 'pass_threshold': -0.13831946551367255, 'dot_coeff': 0.5931163941352746, 'ehmi_coeff': 0.0, 'dist_coeff': 0.7849626818288308}, # -400.9398436713008
+    # More iterations to above
+    #'keio_uk': {'std': 0.6195190762900944, 'damping': 1.929186500212442, 'scale': 0.6010065333354125, 'tau_threshold': 1.5240523644347281, 'act_threshold': 0.8187184667744724, 'pass_threshold': -0.13420139794611713, 'dot_coeff': 0.5899926559079496, 'ehmi_coeff': 0.0, 'dist_coeff': 0.7812059668687735}, #-400.932563397718
+    # More iterations
+    'keio_uk': {'std': 0.6194137333928834, 'damping': 1.9306102005519206, 'scale': 0.6000089156362227, 'tau_threshold': 1.5249170232823437, 'act_threshold': 0.8183601344001614, 'pass_threshold': -0.14263846715640696, 'dot_coeff': 0.5873341694195724, 'ehmi_coeff': 0.0, 'dist_coeff': 0.778726921288107}, #-400.9303668742628
+
     # pass_threshold and ehmi_coeff fitted to HIKER
     #'hiker': {'std': 0.5343251552162854, 'damping': 2.582538225032225, 'scale': 0.561655673298275, 'tau_threshold': 1.183889032468715, 'act_threshold': 0.6971501469537572, 'pass_threshold': 0.28361016189473476, 'dot_coeff': 0.4878925491203472, 'ehmi_coeff': 0.45785997539732376, 'dist_coeff': 0.7701321073773191}, # -10850.709835672875
     # With proper compensation for the rear-front-coordinate mess
@@ -175,11 +190,12 @@ tdm_params = {
 tdm_params['unified'] = {**tdm_params['keio_uk'], 'ehmi_coeff': tdm_params['hiker']['ehmi_coeff']}
 
 
-def mangle_tau(traj, traj_b=None, dist_coeff=0.0, dot_coeff=0.0, ehmi_coeff=0.0, **kwargs):
+def mangle_tau(traj, traj_b=None, pass_threshold=0.0, dist_coeff=0.0, dot_coeff=0.0, ehmi_coeff=0.0, **kwargs):
     distance = traj['distance'].copy()
     tau = distance/traj['speed']
     tau_dot = np.gradient(tau, DT)
-    
+    tau_dot[~np.isfinite(tau_dot)] = 0 # Fix for when speed goes to zero
+
     if traj_b is not None:
         not_passed = traj_b["distance"] > 0
         distance[not_passed] = (distance - traj_b["distance"])[not_passed]
@@ -189,12 +205,14 @@ def mangle_tau(traj, traj_b=None, dist_coeff=0.0, dot_coeff=0.0, ehmi_coeff=0.0,
     #tau_dot = traj['tau_dot']
     prior_tau = distance/(50/3.6)
     
+    passed = tau < pass_threshold
     tau = dist_coeff*(prior_tau - tau) + tau + dot_coeff*(tau_dot + 1) + ehmi_coeff*traj['ehmi']
     tau[traj['speed'] == 0] = np.inf
+    tau[passed] = np.inf
     return tau
 
 def model_params(params):
-    return {k: v for k, v in params.items() if k not in ('dist_coeff', 'dot_coeff', 'ehmi_coeff')}
+    return {k: v for k, v in params.items() if k not in ('pass_threshold', 'dist_coeff', 'dot_coeff', 'ehmi_coeff')}
 
 actgrid = Grid1d(-3.0, 3.0, 100)
 def fit_vdd(trials, dt):
@@ -319,22 +337,37 @@ def fit_blocker_tdm(trials, dt, init=tdm_params['unified']):
             #method='powell', #options={'maxiter': 1}
             )(**spec)
 
-def fit_unified_vddm(trials, dt, init=vddm_params['unified']):
+def fit_unified_vddm(trials, dt, init=vddm_params['keio_uk']):
     spec = dict(
-        std=            (init['std'], logbarrier,fixed),
-        damping=        (init['damping'], logbarrier,fixed),
-        scale=          (init['scale'], logbarrier,fixed),
-        tau_threshold=  (init['tau_threshold'], logbarrier,fixed),
-        act_threshold=  (init['act_threshold'], logbarrier,fixed),
+        std=            (init['std'], logbarrier),
+        damping=        (init['damping'],),
+        scale=          (init['scale'], logbarrier),
+        tau_threshold=  (init['tau_threshold']),
+        act_threshold=  (init['act_threshold'], logbarrier),
         pass_threshold= (init['pass_threshold'],),
-        dot_coeff=      (init['dot_coeff'],logbarrier,fixed),
-        ehmi_coeff=      (init['ehmi_coeff'],),
-        dist_coeff=     (init['dist_coeff'],fixed)
+        dot_coeff=      (init['dot_coeff'],),
+        ehmi_coeff=      (init['ehmi_coeff'],fixed),
+        dist_coeff=     (init['dist_coeff'],)
     )
+    
+    """
+    spec = dict(
+        std=            (1.0, logbarrier),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier),
+        pass_threshold= (0.0,),
+        dot_coeff=      (0.0,),
+        ehmi_coeff=      (0.0,fixed),
+        dist_coeff=     (0.0,)
+    )
+    """
     
     bestlik = -np.inf
     def loss(**params):
         lik = 0
+        
         model = Vddm(dt=dt, **model_params(params))
         for trial in trials:
             if len(trial) == 3:
@@ -349,13 +382,20 @@ def fit_unified_vddm(trials, dt, init=vddm_params['unified']):
                 pdf = model.decisions(actgrid, tau)
                 lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
         nonlocal bestlik
+        if lik != lik:
+            print("NANANAN")
+            print(params)
         if lik > bestlik:
             bestlik = lik
             print(params)
             print(lik)
         return -lik
     
+    iters = 0
     def cb(x, f, accept):
+        nonlocal iters
+        iters += 1
+        print("Basinhopping iter done", iters)
         return
         print(kwopt.unmangle(spec, x))
         print(f, accept)
@@ -383,7 +423,7 @@ def fit_unified_vddm(trials, dt, init=vddm_params['unified']):
     print(wtf)
     return
     """
-    return minimizer(loss, scipy.optimize.basinhopping, T=10.0,
+    return minimizer(loss, scipy.optimize.basinhopping, T=1.0,
             callback=cb, minimizer_kwargs={'method': 'powell'}
             #method='powell', #options={'maxiter': 1}
             )(**spec)
@@ -433,8 +473,8 @@ def fit_unified_tdm(trials, dt, init=tdm_params['unified']):
             bestlik = lik
         return -lik
     
-    def cb(*args):
-        print(args)
+    #def cb(*args):
+    #    print(args)
 
     return minimizer(loss, scipy.optimize.basinhopping, T=10.0,
             callback=cb, minimizer_kwargs={'method': 'powell'}
@@ -476,7 +516,7 @@ def get_hiker_trials(include_constants=True, include_decels=True, include_ehmi=T
 
     return trials
 
-def get_keio_trials(country='uk', include_constants=True, include_decels=True, include_ehmi=True):
+def get_keio_trials(country='uk', include_constants=True, include_decels=True, **kwargs):
     all_trajectories = pd.read_csv('d2p_trajectories.csv').rename(columns={'time_c': 'time'})
     all_responses = pd.read_csv(f'd2p_cross_times_{country}.csv')
     all_responses[["subject_id", "trial_number"]] = all_responses.unique_ID.str.split("_", 1, expand=True)
@@ -506,15 +546,15 @@ def get_keio_trials(country='uk', include_constants=True, include_decels=True, i
 
 def fit_hiker_and_keio():
     subset = dict(
-        include_ehmi        = True,
+        include_ehmi        = False,
         include_decels      = True,
         include_constants   = True,
         include_splb        = False,
-        include_fh          = True
+        include_fh          = False
         )
     trials = []
-    trials += get_hiker_trials(**subset)
-    #trials += get_keio_trials(**subset)
+    #trials += get_hiker_trials(**subset)
+    trials += get_keio_trials(**subset)
 
     fit = fit_unified_vddm(trials, DT, init=vddm_params['keio_uk'])
     #fit = fit_unified_tdm(trials, DT, init=tdm_params['keio_uk'])
@@ -1049,12 +1089,14 @@ def plot_keio_schematics():
     trials = get_keio_trials(include_constants=False, include_decels=True)
     for i, (traj, resp) in enumerate(trials):
         plot_traj_schematic(traj, resp)
-        plt.savefig(f"figs/keio_decel_sample_{i:02d}.png", dpi=300)
+        plt.show()
+        #plt.savefig(f"figs/keio_decel_sample_{i:02d}.png", dpi=300)
 
 def plot_traj_schematic(traj, rts):
     traj = traj[traj.time >= 0]
 
-    params = vddm_params['unified']
+    params = vddm_params['keio_uk']
+
     model = Vddm(dt=dt, **model_params(params))
     inp = mangle_tau(traj, **params)
 
@@ -1062,7 +1104,6 @@ def plot_traj_schematic(traj, rts):
     ndparams['dot_coeff'] = 0.0
     ndmodel = Vddm(dt=dt, **model_params(ndparams))
     ndinp = mangle_tau(traj, **ndparams)
-
 
     #fig = plt.figure(constrained_layout=True)
     fig, axs = plt.subplots(nrows=3, sharex=True)
@@ -1086,6 +1127,7 @@ def plot_traj_schematic(traj, rts):
     weights[actgrid.bin(0)] = 1.0
     undecided = 1.0
     crossed = []
+
     for i in range(len(traj)):
         weights, decided = model.step(actgrid, inp[i], weights, 1.0)
         undecided -= undecided*decided
@@ -1100,15 +1142,16 @@ def plot_traj_schematic(traj, rts):
     actax.set_ylim(-1, params['act_threshold'])
 
     tauax = axs[1]
-
+    
     tauax.plot(traj.time, traj.tau, color='C0', label='tau')
     tauax.set_ylim(0, 5.0)
     tauax.set_ylabel("Tau (s)", color='C0')
+    
     distax = tauax.twinx()
     distax.plot(traj.time, traj.distance, 'k-', label='Distance')
     distax.set_ylim(0, 100)
     distax.set_ylabel("Distance (m)")
-    
+
     axs[-1].set_xlabel("Time (seconds)")
 
     densax.legend()
@@ -1207,7 +1250,7 @@ def plot_traj_schematic_old(traj, resp):
 
 def plot_keio_consts():
     trials = get_keio_trials(include_decels=False)
-    params = vddm_params['unified']
+    params = vddm_params['keio_uk']
     model = Vddm(dt=dt, **model_params(params))
 
     
@@ -1459,7 +1502,7 @@ def plot_hiker_decels():
 def plot_keio_decels_old():
     import itertools
     trials = get_keio_trials(include_constants=False)
-    params = vddm_params['unified']
+    params = vddm_params['keio_uk']
     model = Vddm(dt=dt, **model_params(params))
 
     fig, axs = plt.subplots(nrows=3, ncols=3, sharex=True, sharey=True, constrained_layout=True)
@@ -1996,11 +2039,11 @@ if __name__ == '__main__':
     #plot_sample_trials()
     #plot_schematic()
     #plot_keio_schematics()
-    #fit_hiker_and_keio()
+    fit_hiker_and_keio()
 
     #plot_hiker_schematics()
     #plot_hiker_means()
-    plot_hiker_time_savings()
+    #plot_hiker_time_savings()
     #plot_hiker_time_savings2()
     #plot_hiker_consts()
     #plot_hiker_decels()
