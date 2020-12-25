@@ -151,7 +151,9 @@ vddm_params = {
     # Few basinhoppings for FH only
     #'hiker': {'std': 0.5343251552162854, 'damping': 2.582538225032225, 'scale': 0.561655673298275, 'tau_threshold': 1.183889032468715, 'act_threshold': 0.6971501469537572, 'pass_threshold': 0.3112119482441364, 'dot_coeff': 0.4878925491203472, 'ehmi_coeff': 0.9526989219987926, 'dist_coeff': 0.7701321073773191} #-7301.504166653411
     # Full basinhopping, FH only
-    'hiker': {'std': 0.5343251552162854, 'damping': 2.582538225032225, 'scale': 0.561655673298275, 'tau_threshold': 1.183889032468715, 'act_threshold': 0.6971501469537572, 'pass_threshold': 0.30895195097474315, 'dot_coeff': 0.4878925491203472, 'ehmi_coeff': 0.9526989030248043, 'dist_coeff': 0.7701321073773191} #-7301.504166653412
+    #'hiker': {'std': 0.5343251552162854, 'damping': 2.582538225032225, 'scale': 0.561655673298275, 'tau_threshold': 1.183889032468715, 'act_threshold': 0.6971501469537572, 'pass_threshold': 0.30895195097474315, 'dot_coeff': 0.4878925491203472, 'ehmi_coeff': 0.9526989030248043, 'dist_coeff': 0.7701321073773191} #-7301.504166653412
+    # FH only, new passing logic 5 basinhoppings
+    'hiker': {'std': 0.6194137333928834, 'damping': 1.9306102005519206, 'scale': 0.6000089156362227, 'tau_threshold': 1.5249170232823437, 'act_threshold': 0.8183601344001614, 'pass_threshold': 0.3367197301400168, 'dot_coeff': 0.5873341694195724, 'ehmi_coeff': 0.9186437845191632, 'dist_coeff': 0.778726921288107} # -7180.23213053746'
     }
 # Keio with eHMI estimated from HIKER
 vddm_params['unified'] = {**vddm_params['keio_uk'], 'ehmi_coeff': vddm_params['hiker']['ehmi_coeff']}
@@ -190,26 +192,47 @@ tdm_params = {
 tdm_params['unified'] = {**tdm_params['keio_uk'], 'ehmi_coeff': tdm_params['hiker']['ehmi_coeff']}
 
 
-def mangle_tau(traj, traj_b=None, pass_threshold=0.0, dist_coeff=0.0, dot_coeff=0.0, ehmi_coeff=0.0, **kwargs):
+def mangle_single_tau(traj, scale=1.0, tau_threshold=1.0, pass_threshold=0.0, dist_coeff=0.0, dot_coeff=0.0, ehmi_coeff=0.0, **kwargs):
     distance = traj['distance'].copy()
     tau = distance/traj['speed']
     tau_dot = np.gradient(tau, DT)
     tau_dot[~np.isfinite(tau_dot)] = 0 # Fix for when speed goes to zero
 
-    if traj_b is not None:
-        not_passed = traj_b["distance"] > 0
-        distance[not_passed] = (distance - traj_b["distance"])[not_passed]
-    
-        tau = distance/traj['speed']
-        #tau_dot = np.gradient(tau, DT)
-    #tau_dot = traj['tau_dot']
     prior_tau = distance/(50/3.6)
-    
     passed = tau < pass_threshold
     tau = dist_coeff*(prior_tau - tau) + tau + dot_coeff*(tau_dot + 1) + ehmi_coeff*traj['ehmi']
     tau[traj['speed'] == 0] = np.inf
     tau[passed] = np.inf
+
+    tau = np.arctan(scale*(tau - tau_threshold))
+
     return tau
+
+def mangle_blocker_tau(traj, traj_b, scale=1.0, tau_threshold=1.0, pass_threshold=0.0, dist_coeff=0.0, dot_coeff=0.0, ehmi_coeff=0.0, **kwargs):
+    
+    tau_b = mangle_single_tau(traj_b, scale=scale, tau_threshold=1e9, pass_threshold=pass_threshold,
+            dist_coeff=dist_coeff, ehmi_coeff=ehmi_coeff, **kwargs)
+    distance = traj['distance'].copy()
+    tau = distance/traj['speed']
+    tau_dot = np.gradient(tau, DT)
+    tau_dot[~np.isfinite(tau_dot)] = 0 # Fix for when speed goes to zero
+
+    not_passed = traj_b["distance"] > 0
+    distance[not_passed] = (distance - traj_b["distance"])[not_passed]
+    
+    tau = distance/traj['speed']
+
+    prior_tau = distance/(50/3.6)
+    
+    #passed = tau < pass_threshold
+    tau = dist_coeff*(prior_tau - tau) + tau + dot_coeff*(tau_dot + 1) + ehmi_coeff*traj['ehmi']
+    tau[traj['speed'] == 0] = np.inf
+    #tau[passed] = np.inf
+
+    tau = np.arctan(scale*(tau - tau_threshold))
+    return tau, tau_b
+
+
 
 def model_params(params):
     return {k: v for k, v in params.items() if k not in ('pass_threshold', 'dist_coeff', 'dot_coeff', 'ehmi_coeff')}
@@ -338,6 +361,7 @@ def fit_blocker_tdm(trials, dt, init=tdm_params['unified']):
             )(**spec)
 
 def fit_unified_vddm(trials, dt, init=vddm_params['keio_uk']):
+    """
     spec = dict(
         std=            (init['std'], logbarrier),
         damping=        (init['damping'],),
@@ -348,6 +372,18 @@ def fit_unified_vddm(trials, dt, init=vddm_params['keio_uk']):
         dot_coeff=      (init['dot_coeff'],),
         ehmi_coeff=      (init['ehmi_coeff'],fixed),
         dist_coeff=     (init['dist_coeff'],)
+    )
+    """
+    spec = dict(
+        std=            (init['std'], logbarrier, fixed),
+        damping=        (init['damping'], fixed),
+        scale=          (init['scale'], logbarrier, fixed),
+        tau_threshold=  (init['tau_threshold'], fixed),
+        act_threshold=  (init['act_threshold'], logbarrier, fixed),
+        pass_threshold= (init['pass_threshold'],),
+        dot_coeff=      (init['dot_coeff'], fixed),
+        ehmi_coeff=      (init['ehmi_coeff'],),
+        dist_coeff=     (init['dist_coeff'],fixed)
     )
     
     """
@@ -372,13 +408,14 @@ def fit_unified_vddm(trials, dt, init=vddm_params['keio_uk']):
         for trial in trials:
             if len(trial) == 3:
                 traj, traj_b, rts = trial
-                tau = mangle_tau(traj, traj_b, **params)
-                tau_b = mangle_tau(traj_b, **params)
+                #tau = mangle_tau(traj, traj_b, **params)
+                #tau_b = mangle_tau(traj_b, **params)
+                tau, tau_b = mangle_blocker_tau(traj, traj_b, **params)
                 pdf = model.blocker_decisions(actgrid, tau, tau_b)
                 lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
             else:
                 traj, rts = trial
-                tau = mangle_tau(traj, **params)
+                tau = mangle_single_tau(traj, **params)
                 pdf = model.decisions(actgrid, tau)
                 lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
         nonlocal bestlik
@@ -546,15 +583,15 @@ def get_keio_trials(country='uk', include_constants=True, include_decels=True, *
 
 def fit_hiker_and_keio():
     subset = dict(
-        include_ehmi        = False,
+        include_ehmi        = True,
         include_decels      = True,
         include_constants   = True,
         include_splb        = False,
-        include_fh          = False
+        include_fh          = True
         )
     trials = []
-    #trials += get_hiker_trials(**subset)
-    trials += get_keio_trials(**subset)
+    trials += get_hiker_trials(**subset)
+    #trials += get_keio_trials(**subset)
 
     fit = fit_unified_vddm(trials, DT, init=vddm_params['keio_uk'])
     #fit = fit_unified_tdm(trials, DT, init=tdm_params['keio_uk'])
@@ -1098,12 +1135,12 @@ def plot_traj_schematic(traj, rts):
     params = vddm_params['keio_uk']
 
     model = Vddm(dt=dt, **model_params(params))
-    inp = mangle_tau(traj, **params)
+    inp = mangle_single_tau(traj, **params)
 
     ndparams = params.copy()
     ndparams['dot_coeff'] = 0.0
     ndmodel = Vddm(dt=dt, **model_params(ndparams))
-    ndinp = mangle_tau(traj, **ndparams)
+    ndinp = mangle_single_tau(traj, **ndparams)
 
     #fig = plt.figure(constrained_layout=True)
     fig, axs = plt.subplots(nrows=3, sharex=True)
@@ -1112,11 +1149,14 @@ def plot_traj_schematic(traj, rts):
     densax.set_xlim(0, 10)
     bins = np.arange(*traj.time[[0, -1]], 0.5)
     densax.plot(traj.time, ecdf(rts)(traj.time), color='black', label='Data')
-    #_, _, histplot = densax.hist(rts, bins, color='black', density=True, alpha=0.25, label='Data')
-    
+
+    histax = densax.twinx()
+    _, _, histplot = histax.hist(rts, bins, color='black', density=True, alpha=0.1, label='Data')
+
     ps = np.array(model.decisions(actgrid, inp).ps)
     cdf = np.cumsum(ps*dt)
     densax.plot(traj.time, cdf, 'C0', label='Model')
+    histax.plot(traj.time, ps, 'C0', alpha=0.25)
     ndps = np.array(ndmodel.decisions(actgrid, ndinp).ps)
     ndcdf = np.cumsum(ndps*dt)
     densax.plot(traj.time, ndcdf, 'C1--', label=r'Model w/o $\dot\tau$')
@@ -1138,7 +1178,7 @@ def plot_traj_schematic(traj, rts):
     actax.pcolormesh(traj.time, np.linspace(actgrid.low(), actgrid.high(), actgrid.N),
             allweights.T/actgrid.dx,
             vmax=0.8, cmap='jet')
-    actax.set_ylabel("Activation")
+    actax.set_ylabel("Evidence")
     actax.set_ylim(-1, params['act_threshold'])
 
     tauax = axs[1]
@@ -1280,7 +1320,7 @@ def plot_keio_consts():
             traj, rts = trial
             bins = np.arange(*traj.time[[0, -1]], 0.5)
             _, _, histplot = ax.hist(rts, bins, color='black', density=True, alpha=0.25, label='Data')
-            inp = mangle_tau(traj, **params)
+            inp = mangle_single_tau(traj, **params)
             pdf = np.array(model.decisions(actgrid, inp).ps)
             pdfplot, = ax.plot(traj.time, pdf, label='Model')
 
@@ -1369,8 +1409,7 @@ def plot_hiker_consts():
             hist, wtfbins = np.histogram(rts[np.isfinite(rts)], bins=bins, density=True)
             crosshare = np.sum(np.isfinite(rts))/len(rts)
             _, _, histplot = ax.hist(bins[:-1], bins=wtfbins, weights=hist*crosshare, color='black', alpha=0.25, label='Data')
-            inp = mangle_tau(traj, lead_traj, **params)
-            lead_inp = mangle_tau(lead_traj, **params)
+            inp, lead_inp = mangle_blocker_tau(traj, lead_traj, **params)
             pdf = np.array(model.blocker_decisions(actgrid, inp, lead_inp).ps)
             pdfplot, = ax.plot(traj.time, pdf, label='Model')
 
@@ -1462,8 +1501,7 @@ def plot_hiker_decels():
                 hist, wtfbins = np.histogram(rts[np.isfinite(rts)], bins=bins, density=True)
                 crosshare = np.sum(np.isfinite(rts))/len(rts)
                 #_, _, histplot = ax.hist(bins[:-1], bins=wtfbins, weights=hist*crosshare, color=color, alpha=0.25, label='Data')
-                inp = mangle_tau(traj, lead_traj, **params)
-                lead_inp = mangle_tau(lead_traj, **params)
+                inp, lead_inp = mangle_blocker_tau(traj, lead_traj, **params)
                 pdf = np.array(model.blocker_decisions(actgrid, inp, lead_inp).ps)
                 #pdfplot, = ax.plot(traj.time, pdf, label='Model', color=color)
                 cdf = np.cumsum(pdf*DT)
@@ -1549,7 +1587,7 @@ def plot_keio_decels():
     taus = sorted(np.unique([round(x[0].tau[0], 1) for x in trials]))
     stopdists = sorted(np.unique([round(np.min(x[0].distance), 1) for x in trials]))
     
-    stopdcolors = dict(zip(stopdists, ('C0', 'C1')))
+    stopdcolors = dict(zip(stopdists, ('k', 'C2')))
     
     grps = lambda itr, key=None: (groupby(sorted(itr, key=key), key=key))
     
@@ -1569,7 +1607,7 @@ def plot_keio_decels():
                 ax._twinx.plot(traj.time, traj.distance, alpha=0.5, color=color)
                 
                 bins = np.arange(*traj.time[[0, -1]], 0.5)
-                inp = mangle_tau(traj, **params)
+                inp = mangle_single_tau(traj, **params)
                 pdf = np.array(model.decisions(actgrid, inp).ps)
                 cdf = np.cumsum(pdf*DT)
                 
@@ -1639,16 +1677,22 @@ def plot_keio_means():
     
     datameans = []
     modelmeans = []
+    has_decel = []
     for traj, rts in trials:
         datameans.append(np.mean(rts))
-        inp = mangle_tau(traj, **params)
+        inp = mangle_single_tau(traj, **params)
         pdf = np.array(model.decisions(actgrid, inp).ps)
         modelmeans.append(np.dot(traj.time, pdf/np.sum(pdf)))
+        has_decel.append(np.std(traj.speed) > 0.1)
 
+    modelmeans = np.array(modelmeans)
+    datameans = np.array(datameans)
+    has_decel = np.array(has_decel)
     plt.plot([1.0, 5.0], [1.0, 5.0], 'k--', label="Identity")
-    plt.plot(modelmeans, datameans, 'o', label="Trial mean")
-    plt.xlabel("Predicted crossing time (s)")
-    plt.ylabel("Measured crossing time (s)")
+    plt.plot(modelmeans[~has_decel], datameans[~has_decel], 'C0o', label="Constant speed trial")
+    plt.plot(modelmeans[has_decel], datameans[has_decel], 'C1o', label="Deceleration trial")
+    plt.xlabel("Mean predicted crossing time (s)")
+    plt.ylabel("Mean observed crossing time (s)")
     plt.legend()
     plt.show()
 
@@ -1662,8 +1706,7 @@ def plot_hiker_means():
     is_braking = []
     has_ehmi = []
     for traj, trajb, rts in trials:
-        inp = mangle_tau(traj, trajb, **params)
-        inp_lead = mangle_tau(trajb, **params)
+        inp, inp_lead = mangle_blocker_tau(traj, trajb, **params)
 
         pred = model.blocker_decisions(actgrid, inp, inp_lead)
 
@@ -1720,8 +1763,7 @@ def plot_hiker_time_savings():
                 bins = np.arange(*traj.time[[0, -1]], 0.25)
                 
                 
-                inp = mangle_tau(traj, lead_traj, **params)
-                lead_inp = mangle_tau(lead_traj, **params)
+                inp, lead_inp = mangle_blocker_tau(traj, lead_traj, **params)
                 pdf = np.array(model.blocker_decisions(actgrid, inp, lead_inp).ps)
 
                 pdf /= np.sum(pdf)
@@ -1730,13 +1772,48 @@ def plot_hiker_time_savings():
                 means[has_ehmi] = np.array([pred_mean, data_mean])
             
             savings.append(means[False] - means[True])
-            
     
     savings = np.array(savings)
-    plt.plot(*savings.T, 'o', label="eHMI trial")
+    plt.plot(*savings.T, 'C0o', label="eHMI")
+
+
+    trials = get_keio_trials(include_constants=False)
+    params = vddm_params['keio_uk']
+    model = Vddm(dt=dt, **model_params(params))
+
+    
+    savings = []
+    for row, (v0, trials) in enumerate(grps(trials, lambda x: round(x[0].speed[0], 1))):
+        for col, (tau0, trials) in enumerate(grps(trials, lambda x: round(x[0].tau[0], 1))):
+            trials = list(trials)
+            if len(trials) != 2: continue
+            means = {}
+            
+            low_stopd, high_stopd = sorted(trials, key=lambda x: round(np.min(x[0].distance)))
+
+            for (highstop, trial) in (True, high_stopd), (False, low_stopd):
+                traj, rts = trial
+                bins = np.arange(*traj.time[[0, -1]], 0.25)
+                
+                
+                #inp, lead_inp = mangle_blocker_tau(traj, lead_traj, **params)
+                inp = mangle_single_tau(traj, **params)
+                pdf = np.array(model.decisions(actgrid, inp).ps)
+
+                pdf /= np.sum(pdf)
+                pred_mean = np.dot(traj.time, pdf)
+                data_mean = np.mean(rts[np.isfinite(rts)])
+                means[highstop] = np.array([pred_mean, data_mean])
+            
+            savings.append(means[False] - means[True])
+            
+    savings = np.array(savings)
+    plt.plot(*savings.T, 'C1o', label="Stopping distance")
+
+
     plt.plot([-0.0, 2.0], [-0.0, 2.0], 'k--', label='Identity')
     plt.xlabel("Mean predicted pedestrian time savings (s)")
-    plt.ylabel("Mean measured pedestrian time savings (s)")
+    plt.ylabel("Mean observed pedestrian time savings (s)")
     plt.legend()
     plt.axis('equal')
     plt.show()
@@ -1756,15 +1833,13 @@ def plot_hiker_time_savings2():
         savings = []
         for tau in taus:
             traj, lead_traj = get_trajectory(tau, speed, True, False)
-            inp = mangle_tau(traj, lead_traj, **params)
-            lead_inp = mangle_tau(lead_traj, **params)
+            inp, lead_inp = mangle_blocker_tau(traj, lead_traj, **params)
             pdf = np.array(model.blocker_decisions(actgrid, inp, lead_inp).ps)
             pdf /= np.sum(pdf)
             vanilla_mean = np.dot(traj.time, pdf)
 
             traj, lead_traj = get_trajectory(tau, speed, True, True)
-            inp = mangle_tau(traj, lead_traj, **params)
-            lead_inp = mangle_tau(lead_traj, **params)
+            inp, lead_inp = mangle_blocker_tau(traj, lead_traj, **params)
             pdf = np.array(model.blocker_decisions(actgrid, inp, lead_inp).ps)
             pdf /= np.sum(pdf)
             ehmi_mean = np.dot(traj.time, pdf)
@@ -1788,8 +1863,7 @@ def plot_hiker_time_savings2():
                 bins = np.arange(*traj.time[[0, -1]], 0.25)
                 
                 
-                inp = mangle_tau(traj, lead_traj, **params)
-                lead_inp = mangle_tau(lead_traj, **params)
+                inp, lead_inp = mangle_blocker_tau(traj, lead_traj, **params)
                 pdf = np.array(model.blocker_decisions(actgrid, inp, lead_inp).ps)
 
                 pdf /= np.sum(pdf)
@@ -1885,12 +1959,13 @@ def plot_hiker_schematic(traj, lead_traj, rts):
     params = vddm_params['hiker']
     model = Vddm(dt=dt, **model_params(params))
     
-    model_lead = Vddm(dt=dt, **{**model_params(params), 'tau_threshold': np.inf})
-    model_lag = Vddm(dt=dt, **{**model_params(params)})
-    inp = mangle_tau(traj, lead_traj, **{**params})
+    #model_lead = Vddm(dt=dt, **{**model_params(params), 'tau_threshold': np.inf})
+    #model_lag = Vddm(dt=dt, **{**model_params(params)})
+    #inp, inp_lead = mangle_tau(traj, lead_traj, **{**params})
+    inp, inp_lead = mangle_blocker_tau(traj, lead_traj, **{**params})
 
-    inp_nohmi = mangle_tau(traj, lead_traj, **{**params, 'ehmi_coeff': 0.0})
-    inp_lead = mangle_tau(lead_traj, **params)
+    inp_nohmi, _ = mangle_blocker_tau(traj, lead_traj, **{**params, 'ehmi_coeff': 0.0})
+    #inp_lead = mangle_tau(lead_traj, **params)
 
     #fig = plt.figure(constrained_layout=True)
     fig, axs = plt.subplots(nrows=3, sharex=True)
@@ -1911,7 +1986,8 @@ def plot_hiker_schematic(traj, lead_traj, rts):
     
     actax = axs[-1]
 
-    lead_ps = np.array(model_lead.decisions(actgrid, inp_lead).ps)
+    #lead_ps = np.array(model_lead.decisions(actgrid, inp_lead).ps)
+    lead_ps = np.array(model.decisions(actgrid, inp_lead).ps)
     lead_cdf = np.cumsum(lead_ps/np.sum(lead_ps))
     weights[actgrid.bin(0)] = 1.0
     undecided = 1.0
@@ -2038,8 +2114,8 @@ if __name__ == '__main__':
 
     #plot_sample_trials()
     #plot_schematic()
-    #plot_keio_schematics()
-    fit_hiker_and_keio()
+    plot_keio_schematics()
+    #fit_hiker_and_keio()
 
     #plot_hiker_schematics()
     #plot_hiker_means()
