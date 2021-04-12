@@ -1,7 +1,7 @@
 from itertools import groupby
 import pandas as pd
 import numpy as np
-from vdd_disc import vdd_loss, vdd_decision_pdf, VddmParams, vdd_blocker_loss, vdd_blocker_decision_pdf
+#from vdd_disc import vdd_loss, vdd_decision_pdf, VddmParams, vdd_blocker_loss, vdd_blocker_decision_pdf
 import tdm
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
@@ -1123,14 +1123,17 @@ def plot_schematic():
     plot_traj_schematic(traj)
 
 def plot_keio_schematics():
-    trials = get_keio_trials(include_constants=False, include_decels=True)
+    trials = get_keio_trials(include_constants=True, include_decels=False)
     for i, (traj, resp) in enumerate(trials):
         plot_traj_schematic(traj, resp)
-        plt.show()
+        #plt.show()
         #plt.savefig(f"figs/keio_decel_sample_{i:02d}.png", dpi=300)
+        plt.savefig(f"figs/keio_const_sample_{i:02d}.png", dpi=300)
 
 def plot_traj_schematic(traj, rts):
     traj = traj[traj.time >= 0]
+    
+    artists = []
 
     params = vddm_params['keio_uk']
 
@@ -1143,23 +1146,22 @@ def plot_traj_schematic(traj, rts):
     ndinp = mangle_single_tau(traj, **ndparams)
 
     #fig = plt.figure(constrained_layout=True)
-    fig, axs = plt.subplots(nrows=3, sharex=True)
+    fig, axs = plt.subplots(nrows=3, sharex=True, figsize=(8, 5))
     
     densax = axs[0]
     densax.set_xlim(0, 10)
     bins = np.arange(*traj.time[[0, -1]], 0.5)
-    densax.plot(traj.time, ecdf(rts)(traj.time), color='black', label='Data')
+    edfplot, = densax.plot(traj.time, ecdf(rts)(traj.time), color='black', label='Data ECDF')
 
     histax = densax.twinx()
-    _, _, histplot = histax.hist(rts, bins, color='black', density=True, alpha=0.1, label='Data')
-
+    _, _, histplot = histax.hist(rts, bins, color='black', density=True, alpha=0.1, label='Data density')
     ps = np.array(model.decisions(actgrid, inp).ps)
     cdf = np.cumsum(ps*dt)
-    densax.plot(traj.time, cdf, 'C0', label='Model')
-    histax.plot(traj.time, ps, 'C0', alpha=0.25)
+    cdfplot, = densax.plot(traj.time, cdf, 'C0', label='Model CDF')
+    pdfplot, = histax.plot(traj.time, ps, 'C0', alpha=0.25, label='Model PDF')
     ndps = np.array(ndmodel.decisions(actgrid, ndinp).ps)
     ndcdf = np.cumsum(ndps*dt)
-    densax.plot(traj.time, ndcdf, 'C1--', label=r'Model w/o $\dot\tau$')
+    #densax.plot(traj.time, ndcdf, 'C1--', label=r'Model w/o $\dot\tau$')
     allweights = np.zeros((len(traj), actgrid.N))
     weights = np.zeros(actgrid.N)
     
@@ -1183,19 +1185,23 @@ def plot_traj_schematic(traj, rts):
 
     tauax = axs[1]
     
-    tauax.plot(traj.time, traj.tau, color='C0', label='tau')
+    tauax.plot(traj.time, traj.tau, color='C0')
     tauax.set_ylim(0, 5.0)
     tauax.set_ylabel("Tau (s)", color='C0')
     
     distax = tauax.twinx()
-    distax.plot(traj.time, traj.distance, 'k-', label='Distance')
+    distax.plot(traj.time, traj.distance, 'k-')
     distax.set_ylim(0, 100)
     distax.set_ylabel("Distance (m)")
 
     axs[-1].set_xlabel("Time (seconds)")
 
-    densax.legend()
+    plt.figlegend(ncol=5)
+    #densax.legend(loc="upper right")
     densax.set_ylabel("Share crossed")
+
+    histax.set_ylabel('Prob. density')
+    #histax.legend(loc="lower right")
 
 def plot_traj_schematic_old(traj, resp):
     
@@ -1309,8 +1315,8 @@ def plot_keio_consts():
             if col == 0:
                 ax.set_ylabel(f"v0 = {v0} m/s\nCrossing probability density")
             if row == 0:
-                ax.set_title(f"tau0 = {tau0} s")
-                cax.set_title(f"tau0 = {tau0} s")
+                ax.set_title(f"Initial TTA {tau0} s")
+                cax.set_title(f"Initial TTA {tau0} s")
             if row == nrows - 1:
                 ax.set_xlabel("Time (s)")
 
@@ -1362,7 +1368,7 @@ def plot_keio_consts():
                 cax.legend(handles=handles)
             
             if cax.is_first_col():
-                cax.set_ylabel('Share passed')
+                cax.set_ylabel('Share crossed')
             if cax.is_last_col():
                 cax._twinx.set_ylabel("Distance (meters)")
             else:
@@ -1395,8 +1401,8 @@ def plot_hiker_consts():
                 ax.set_ylabel(f"v0 = {v0} m/s\nCrossing probability density")
                 cax.set_ylabel(f"v0 = {v0} m/s\nShare crossed")
             if row == 0:
-                ax.set_title(f"tau0 = {tau0} s")
-                cax.set_title(f"tau0 = {tau0} s")
+                ax.set_title(f"Init. TTA {tau0} s")
+                cax.set_title(f"Init. TTA {tau0} s")
             if row == nrows - 1:
                 ax.set_xlabel("Time (s)")
 
@@ -1455,7 +1461,7 @@ def plot_hiker_consts():
                 cax.legend(handles=handles)
             
             if cax.is_first_col():
-                cax.set_ylabel('Share passed')
+                cax.set_ylabel('Share crossed')
             if cax.is_last_col():
                 cax._twinx.set_ylabel("Distance (meters)")
             else:
@@ -1484,9 +1490,9 @@ def plot_hiker_decels():
             ax = axs[row, col]
             if col == 0:
                 #ax.set_ylabel(f"v0 = {v0} m/s\nCrossing probability density")
-                ax.set_ylabel(f"v0 = {v0} m/s\nShare passed")
+                ax.set_ylabel(f"Init speed {v0} m/s\nShare crossed")
             if row == 0:
-                ax.set_title(f"tau0 = {tau0} s")
+                ax.set_title(f"Init. TTA {tau0} s")
             if row == nrows - 1:
                 ax.set_xlabel("Time (s)")
             
@@ -1625,9 +1631,9 @@ def plot_keio_decels():
                 ax.legend(handles=handles)
             
             if ax.is_first_col():
-                ax.set_ylabel(f'v0 {v0} m/s\nShare passed')
+                ax.set_ylabel(f'Init. speed {v0} m/s\nShare crossed')
             if ax.is_first_row():
-                ax.set_title(f'tau0 {tau0} s')
+                ax.set_title(f'Initial TTA {tau0} s')
             if ax.is_last_col():
                 ax._twinx.set_ylabel("Distance (meters)")
             else:
@@ -1689,8 +1695,16 @@ def plot_keio_means():
     datameans = np.array(datameans)
     has_decel = np.array(has_decel)
     plt.plot([1.0, 5.0], [1.0, 5.0], 'k--', label="Identity")
-    plt.plot(modelmeans[~has_decel], datameans[~has_decel], 'C0o', label="Constant speed trial")
-    plt.plot(modelmeans[has_decel], datameans[has_decel], 'C1o', label="Deceleration trial")
+    r2 = scipy.stats.pearsonr(modelmeans, datameans)[0]**2
+    print(f"R² {r2}")
+    mad_const = np.mean(np.abs(modelmeans[~has_decel] - datameans[~has_decel]))
+    mad_yield = np.mean(np.abs(modelmeans[has_decel] - datameans[has_decel]))
+    mad = np.mean(np.abs(modelmeans - datameans))
+    print(f"Const MAD {mad_const}")
+    print(f"Yield mad {mad_yield}")
+    print(f"Total MAD {mad}")
+    plt.plot(modelmeans[~has_decel], datameans[~has_decel], 'C0o', label="Constant speed scenario")
+    plt.plot(modelmeans[has_decel], datameans[has_decel], 'C1o', label="Yielding scenario")
     plt.xlabel("Mean predicted crossing time (s)")
     plt.ylabel("Mean observed crossing time (s)")
     plt.legend()
@@ -1733,10 +1747,33 @@ def plot_hiker_means():
     ehmi_trials = has_ehmi & is_braking
     noehmi_trials = ~has_ehmi & is_braking
 
+    r2 = scipy.stats.pearsonr(modelmeans, datameans)[0]**2
+    #print(f"R² total {r2}")
+    mad = np.mean(np.abs(modelmeans - datameans))
+    print(f"MAD total {mad}")
+    
+    mad = np.mean(np.abs(modelmeans[noehmi_trials] - datameans[noehmi_trials]))
+    print(f"MAD noehmi {mad}")
+
+    mad = np.mean(np.abs(modelmeans[ehmi_trials] - datameans[ehmi_trials]))
+    print(f"MAD ehmi {mad}")
+     
+    r2 = scipy.stats.pearsonr(modelmeans[is_braking], datameans[is_braking])[0]**2
+    #print(f"R² yielding {r2}")
+    mad = np.mean(np.abs(modelmeans[is_braking] - datameans[is_braking]))
+    print(f"MAD yield {mad}")
+
+   
+    
+    #r2 = scipy.stats.pearsonr(modelmeans[~is_braking], datameans[~is_braking])[0]**2
+    #print(f"R² constant {r2}")
+    mad = np.mean(np.abs(modelmeans[~is_braking] - datameans[~is_braking]))
+    print(f"MAD const {mad}")
+
     plt.plot([1.0, 5.0], [1.0, 5.0], 'k--', label="Identity")
     plt.plot(modelmeans[noehmi_trials], datameans[noehmi_trials], 'o', label="Yielding, no eHMI")
     plt.plot(modelmeans[ehmi_trials], datameans[ehmi_trials], 'o', label="Yielding, with eHMI")
-    plt.plot(modelmeans[~is_braking], datameans[~is_braking], 'o', label="Non-yielding")
+    plt.plot(modelmeans[~is_braking], datameans[~is_braking], 'o', label="Constant speed")
     plt.xlabel("Predicted mean crossing time (s)")
     plt.ylabel("Measured mean crossing time (s)")
     plt.legend()
@@ -1773,6 +1810,7 @@ def plot_hiker_time_savings():
             
             savings.append(means[False] - means[True])
     
+    all_savings = savings
     savings = np.array(savings)
     plt.plot(*savings.T, 'C0o', label="eHMI")
 
@@ -1806,16 +1844,20 @@ def plot_hiker_time_savings():
                 means[highstop] = np.array([pred_mean, data_mean])
             
             savings.append(means[False] - means[True])
-            
+    
+    all_savings.extend(savings)
     savings = np.array(savings)
-    plt.plot(*savings.T, 'C1o', label="Stopping distance")
+    plt.plot(*savings.T, 'C1o', label="Exaggerated deceleration")
 
+    print(np.mean(np.abs(savings[:,0] - savings[:,1])))
 
+    r2 = scipy.stats.pearsonr(*np.array(all_savings).T)[0]**2
+    print(f"R² = {r2}")
     plt.plot([-0.0, 2.0], [-0.0, 2.0], 'k--', label='Identity')
     plt.xlabel("Mean predicted pedestrian time savings (s)")
     plt.ylabel("Mean observed pedestrian time savings (s)")
     plt.legend()
-    plt.axis('equal')
+    plt.gca().set_aspect('equal', 'box')
     plt.show()
 
 def plot_hiker_time_savings2():
@@ -2114,12 +2156,12 @@ if __name__ == '__main__':
 
     #plot_sample_trials()
     #plot_schematic()
-    plot_keio_schematics()
+    #plot_keio_schematics()
     #fit_hiker_and_keio()
 
     #plot_hiker_schematics()
     #plot_hiker_means()
-    #plot_hiker_time_savings()
+    plot_hiker_time_savings()
     #plot_hiker_time_savings2()
     #plot_hiker_consts()
     #plot_hiker_decels()
