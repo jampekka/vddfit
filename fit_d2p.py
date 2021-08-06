@@ -140,7 +140,10 @@ vddm_params = {
     # More iterations to above
     #'keio_uk': {'std': 0.6195190762900944, 'damping': 1.929186500212442, 'scale': 0.6010065333354125, 'tau_threshold': 1.5240523644347281, 'act_threshold': 0.8187184667744724, 'pass_threshold': -0.13420139794611713, 'dot_coeff': 0.5899926559079496, 'ehmi_coeff': 0.0, 'dist_coeff': 0.7812059668687735}, #-400.932563397718
     # More iterations
-    'keio_uk': {'std': 0.6194137333928834, 'damping': 1.9306102005519206, 'scale': 0.6000089156362227, 'tau_threshold': 1.5249170232823437, 'act_threshold': 0.8183601344001614, 'pass_threshold': -0.14263846715640696, 'dot_coeff': 0.5873341694195724, 'ehmi_coeff': 0.0, 'dist_coeff': 0.778726921288107}, #-400.9303668742628
+    #'keio_uk': {'std': 0.6194137333928834, 'damping': 1.9306102005519206, 'scale': 0.6000089156362227, 'tau_threshold': 1.5249170232823437, 'act_threshold': 0.8183601344001614, 'pass_threshold': -0.14263846715640696, 'dot_coeff': 0.5873341694195724, 'ehmi_coeff': 0.0, 'dist_coeff': 0.778726921288107}, #-400.9303668742628
+    
+    # Fresh one from "clean" initials and 10 basinhoppings. FINAL!
+    'keio_uk': {'std': 0.6412741499454753, 'damping': 1.8440331169192161, 'scale': 0.5872771408176366, 'tau_threshold': 1.6365316182723884, 'act_threshold': 0.8402375260548017, 'pass_threshold': -0.1433333330133312, 'dist_coeff': 0.7516130441514057, 'dot_coeff': 0.5850506807424146}, # -400.91753068
 
     # pass_threshold and ehmi_coeff fitted to HIKER
     #'hiker': {'std': 0.5343251552162854, 'damping': 2.582538225032225, 'scale': 0.561655673298275, 'tau_threshold': 1.183889032468715, 'act_threshold': 0.6971501469537572, 'pass_threshold': 0.28361016189473476, 'dot_coeff': 0.4878925491203472, 'ehmi_coeff': 0.45785997539732376, 'dist_coeff': 0.7701321073773191}, # -10850.709835672875
@@ -153,7 +156,10 @@ vddm_params = {
     # Full basinhopping, FH only
     #'hiker': {'std': 0.5343251552162854, 'damping': 2.582538225032225, 'scale': 0.561655673298275, 'tau_threshold': 1.183889032468715, 'act_threshold': 0.6971501469537572, 'pass_threshold': 0.30895195097474315, 'dot_coeff': 0.4878925491203472, 'ehmi_coeff': 0.9526989030248043, 'dist_coeff': 0.7701321073773191} #-7301.504166653412
     # FH only, new passing logic 5 basinhoppings
-    'hiker': {'std': 0.6194137333928834, 'damping': 1.9306102005519206, 'scale': 0.6000089156362227, 'tau_threshold': 1.5249170232823437, 'act_threshold': 0.8183601344001614, 'pass_threshold': 0.3367197301400168, 'dot_coeff': 0.5873341694195724, 'ehmi_coeff': 0.9186437845191632, 'dist_coeff': 0.778726921288107} # -7180.23213053746'
+    #'hiker': {'std': 0.6194137333928834, 'damping': 1.9306102005519206, 'scale': 0.6000089156362227, 'tau_threshold': 1.5249170232823437, 'act_threshold': 0.8183601344001614, 'pass_threshold': 0.3367197301400168, 'dot_coeff': 0.5873341694195724, 'ehmi_coeff': 0.9186437845191632, 'dist_coeff': 0.778726921288107} # -7180.23213053746'
+
+    # New fit 10 basinhoppings from final keio
+    'hiker': {'std': 0.6412741499454753, 'damping': 1.8440331169192161, 'scale': 0.5872771408176366, 'tau_threshold': 1.6365316182723884, 'act_threshold': 0.8402375260548017, 'pass_threshold': 0.33458479922282064, 'dist_coeff': 0.7516130441514057, 'dot_coeff': 0.5850506807424146, 'ehmi_coeff': 0.9407793947268418}, # -7151.213982396713
     }
 # Keio with eHMI estimated from HIKER
 vddm_params['unified'] = {**vddm_params['keio_uk'], 'ehmi_coeff': vddm_params['hiker']['ehmi_coeff']}
@@ -359,6 +365,73 @@ def fit_blocker_tdm(trials, dt, init=tdm_params['unified']):
             callback=cb, minimizer_kwargs={'method': 'powell'}
             #method='powell', #options={'maxiter': 1}
             )(**spec)
+
+def fit_vddm_spec(trials, dt, spec):
+    bestlik = -np.inf
+    def loss(**params):
+        lik = 0
+        
+        model = Vddm(dt=dt, **model_params(params))
+        for trial in trials:
+            if len(trial) == 3:
+                traj, traj_b, rts = trial
+                #tau = mangle_tau(traj, traj_b, **params)
+                #tau_b = mangle_tau(traj_b, **params)
+                tau, tau_b = mangle_blocker_tau(traj, traj_b, **params)
+                pdf = model.blocker_decisions(actgrid, tau, tau_b)
+                lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
+            else:
+                traj, rts = trial
+                tau = mangle_single_tau(traj, **params)
+                pdf = model.decisions(actgrid, tau)
+                lik += pdf.loglikelihood(rts - traj.time[0], np.finfo(float).eps)
+        nonlocal bestlik
+        if lik != lik:
+            print("NANANAN")
+            print(params)
+        if lik > bestlik:
+            bestlik = lik
+            print(params)
+            print(lik)
+        return -lik
+    
+    iters = 0
+    def cb(x, f, accept):
+        nonlocal iters
+        iters += 1
+        #print("Basinhopping iter done", iters)
+        return
+        print(kwopt.unmangle(spec, x))
+        print(f, accept)
+    
+    """
+    from skopt import gp_minimize, forest_minimize, gbrt_minimize
+    from skopt.utils import use_named_args
+    from skopt.space import Real
+    dims = [
+        Real(name="std", low=0, high=2.0),
+        Real(name="damping", low=1e-30, high=(1 - 1e-30)),
+        Real(name="scale", low=0, high=2.0),
+        Real(name="tau_threshold", low=0.0, high=3.0),
+        Real(name="act_threshold", low=0.0, high=2.0),
+        Real(name="pass_threshold", low=0.0, high=2.0),
+        Real(name="dot_coeff", low=0.0, high=2.0),
+        Real(name="ehmi_coeff", low=0.0, high=1.0),
+        Real(name="dist_coeff", low=0.0, high=1.0),
+            ]
+    x0 = [init[d.name] for d in dims]
+    wtf = forest_minimize(use_named_args(dimensions=dims)(loss), dims, verbose=True, n_calls=1000,
+            #x0=x0,
+            acq_func='PI',
+            )
+    print(wtf)
+    return
+    """
+    return minimizer(loss, scipy.optimize.basinhopping, T=1.0, niter=10,
+            callback=cb, minimizer_kwargs={'method': 'powell'}
+            #method='powell', #options={'maxiter': 1}
+            )(**spec)
+
 
 def fit_unified_vddm(trials, dt, init=vddm_params['keio_uk']):
     """
@@ -596,6 +669,221 @@ def fit_hiker_and_keio():
     fit = fit_unified_vddm(trials, DT, init=vddm_params['keio_uk'])
     #fit = fit_unified_tdm(trials, DT, init=tdm_params['keio_uk'])
     #print(fit)
+
+from itertools import chain, combinations
+
+def powerset(iterable):
+    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+
+def fit_keio_exhaustive():
+    constants = dict(
+        include_decels      = False,
+        include_constants   = True,
+        )
+    trials = get_keio_trials(**constants)
+    
+    base_spec = dict(
+        std=            (1.0, logbarrier,),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier,),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier,),
+        pass_threshold= (0.0,),
+        dist_coeff=     (0.0,),
+        #dot_coeff=      (0.0,),
+    )
+    
+    always_free = {'tau_threshold', 'pass_threshold'}
+    keys = set(base_spec.keys()) - always_free
+
+    fixeds = list(powerset(keys))[::-1]
+    
+    #print(len(fixeds))
+    for i, fix in enumerate(fixeds):
+        print(f"Starting fit {i}/{len(fixeds)}, {fix}")
+        spec = {}
+        for key in base_spec.keys():
+            if key in fix:
+                p = (*base_spec[key], fixed)
+            else:
+                p = base_spec[key]
+            spec[key] = p
+        fit = fit_vddm_spec(trials, DT, spec)
+        print("RESULT", repr({'fixed': fix, 'param': fit['kwargs'], 'lik': float(fit['fun'])}))
+        #print(spec)
+        #print(fit)
+
+def fit_keio_taudot():
+
+    base_spec = dict(
+        std=            (1.0, logbarrier,),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier,),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier,),
+        pass_threshold= (0.0,),
+        dist_coeff=     (0.0,fixed),
+        dot_coeff=      (0.0,),
+    )
+    #const_fit = {'fixed': ('act_threshold', 'scale'), 'param': {'std': 0.7006552312068307, 'damping': 1.3452575846143602, 'scale': 1.0, 'tau_threshold': 1.912503681737398, 'act_threshold': 1.0, 'pass_threshold': 0.03131684033424723, 'dist_coeff': 0.6757158912651569}, 'lik': -148.93699882304594, 'AIC': 307.8739976460919}
+    #const_p = const_fit['param']
+    
+    #const_p = {'std': 0.6194137333928834, 'damping': 1.9306102005519206, 'scale': 0.6000089156362227, 'tau_threshold': 1.5249170232823437, 'act_threshold': 0.8183601344001614, 'pass_threshold': -0.14263846715640696, 'dot_coeff': 0.5873341694195724, 'ehmi_coeff': 0.0, 'dist_coeff': 0.778726921288107}
+
+    #spec = {n: (v, fixed) for n, v in const_p.items()}
+    #spec['dot_coeff'] = (0.0, fixed)
+    spec = base_spec
+
+    trials = get_keio_trials()
+    fit = fit_vddm_spec(trials, DT, spec)
+    print(fit)
+    # TODO: Check this against original!
+    # Initial
+    # {'std': 1.0, 'damping': 0.0, 'scale': 1.0, 'tau_threshold': 2.0, 'act_threshold': 1.0, 'pass_threshold': 0.0, 'dist_coeff': 0.0, 'dot_coeff': 0.0} -595.8099158341558
+    # Full fit
+    # {'std': 0.6412741499454753, 'damping': 1.8440331169192161, 'scale': 0.5872771408176366, 'tau_threshold': 1.6365316182723884, 'act_threshold': 0.8402375260548017, 'pass_threshold': -0.1433333330133312, 'dist_coeff': 0.7516130441514057, 'dot_coeff': 0.5850506807424146} 400.91753068
+    # Fixed dist_coeff and dot_coeff 
+    # {'std': 0.29981452541414105, 'damping': 4.218811712789847, 'scale': 0.623337407406237, 'tau_threshold': 0.42366279853722555, 'act_threshold': 0.4716003955399059, 'pass_threshold': -0.1652528451330661, 'dist_coeff': 0.0, 'dot_coeff': 0.0} 420.70700283
+
+    # {'std': 0.7006552312068307, 'damping': 1.3452575846143602, 'scale': 1.0, 'tau_threshold': 1.912503681737398, 'act_threshold': 1.0, 'pass_threshold': 0.03131684033424723, 'dist_coeff': 0.6757158912651569, 'dot_coeff': 0.5637960552243235} # 412.19424258
+    # {'std': 0.7006552312068307, 'damping': 1.3452575846143602, 'scale': 1.0, 'tau_threshold': 1.912503681737398, 'act_threshold': 1.0, 'pass_threshold': 0.03131684033424723, 'dist_coeff': 0.6757158912651569, 'dot_coeff': 0.0} 515.53862763
+
+def fit_hiker_param():
+    spec = {k: (v, fixed) for k, v in vddm_params['keio_uk'].items()}
+    spec['ehmi_coeff'] = (0.0, fixed)
+    spec['pass_threshold'] = spec['pass_threshold'][0]
+
+    trials = get_hiker_trials()
+    fit = fit_vddm_spec(trials, DT, spec)
+    
+    # All fixed
+    # {'std': 0.6412741499454753, 'damping': 1.8440331169192161, 'scale': 0.5872771408176366, 'tau_threshold': 1.6365316182723884, 'act_threshold': 0.8402375260548017, 'pass_threshold': -0.1433333330133312, 'dist_coeff': 0.7516130441514057, 'dot_coeff': 0.5850506807424146, 'ehmi_coeff': 0.0} -10820.149568277071
+    # ehmi free
+    # {'std': 0.6412741499454753, 'damping': 1.8440331169192161, 'scale': 0.5872771408176366, 'tau_threshold': 1.6365316182723884, 'act_threshold': 0.8402375260548017, 'pass_threshold': -0.1433333330133312, 'dist_coeff': 0.7516130441514057, 'dot_coeff': 0.5850506807424146, 'ehmi_coeff': 1.0540187814991056} -10607.05905644646
+    # pass_threshold free
+    # {'std': 0.6412741499454753, 'damping': 1.8440331169192161, 'scale': 0.5872771408176366, 'tau_threshold': 1.6365316182723884, 'act_threshold': 0.8402375260548017, 'pass_threshold': 0.33634145012776706, 'dist_coeff': 0.7516130441514057, 'dot_coeff': 0.5850506807424146, 'ehmi_coeff': 0.0} -7326.4397774848
+    # both free
+    # {'std': 0.6412741499454753, 'damping': 1.8440331169192161, 'scale': 0.5872771408176366, 'tau_threshold': 1.6365316182723884, 'act_threshold': 0.8402375260548017, 'pass_threshold': 0.33458479922282064, 'dist_coeff': 0.7516130441514057, 'dot_coeff': 0.5850506807424146, 'ehmi_coeff': 0.9407793947268418} -7151.213982396713
+    print(fit)
+
+def fit_keio_stagewise():
+    constants = dict(
+        include_decels      = False,
+        include_constants   = True,
+        )
+    trials = get_keio_trials(**constants)
+    
+    print(trials)
+
+    minimal_constant_spec = dict(
+        std=            (1.0, logbarrier,),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier, fixed),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier, fixed),
+        pass_threshold= (0.0,),
+        dist_coeff=     (0.0, fixed)
+        
+        #dot_coeff=      (0.0, fixed),
+        #ehmi_coeff=     (0.0,fixed),
+    )
+
+    # Initial param
+    # {'std': 1.0, 'damping': 0.0, 'scale': 1.0, 'tau_threshold': 2.0, 'act_threshold': 1.0, 'pass_threshold': 0.0, 'dist_coeff': 0.0}: -222.79804155234032
+
+    #fit = fit_vddm_spec(trials, DT, minimal_constant_spec)
+    # With 100 basinhoppings from initial
+    #param = {'std': 0.7327692619200357, 'damping': 1.5167817657428815, 'scale': 1.0, 'tau_threshold': 2.4633391859539833, 'act_threshold': 1.0, 'pass_threshold': 0.03435307857681838, 'dist_coeff': 0.0}
+    # Loglik -154.0860924074557
+
+    minimal_constant_spec_w_ah = dict(
+        std=            (1.0, logbarrier,),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier, fixed),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier,),
+        pass_threshold= (0.0,),
+        dist_coeff=     (0.0, fixed)
+        
+        #dot_coeff=      (0.0, fixed),
+        #ehmi_coeff=     (0.0,fixed),
+    )
+    #fit = fit_vddm_spec(trials, DT, minimal_constant_spec_w_ah)
+    # With 100 basinhoppings from initial
+    #fun: array(154.08296508)
+    #kwargs: {'std': 0.7400841327902302, 'damping': 1.4100825246752955, 'scale': 1.0, 'tau_threshold': 2.501401343538949, 'act_threshold': 1.0314611015964175, 'pass_threshold': 0.05666666702343232, 'dist_coeff': 0.0}
+
+    constant_spec_full = dict(
+        std=            (1.0, logbarrier,),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier,),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier,),
+        pass_threshold= (0.0,),
+        dist_coeff=     (0.0, fixed)
+        
+        #dot_coeff=      (0.0, fixed),
+        #ehmi_coeff=     (0.0,fixed),
+    )
+    #fit = fit_vddm_spec(trials, DT, constant_spec_full)
+    #{'std': 0.6680645509724913, 'damping': 1.542229411877024, 'scale': 0.6600328597662242, 'tau_threshold': 2.1560194288612298, 'act_threshold': 0.9421202619832011, 'pass_threshold': -0.03987831916670232, 'dist_coeff': 0.0}
+    #-152.85019367879767
+
+    constant_spec_full_with_dist = dict(
+        std=            (1.0, logbarrier,),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier,),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier,),
+        pass_threshold= (0.0,),
+        dist_coeff=     (0.0,)
+        
+        #dot_coeff=      (0.0, fixed),
+        #ehmi_coeff=     (0.0,fixed),
+    )
+    #fit = fit_vddm_spec(trials, DT, constant_spec_full_with_dist)
+
+    #{'std': 0.7044279237132647, 'damping': 1.2534522093834632, 'scale': 0.8264425501470976, 'tau_threshold': 1.9136155483428194, 'act_threshold': 1.0050299986601257, 'pass_threshold': 0.002769774653481974, 'dist_coeff': 0.6544058995351815}
+    # -148.66168012163746
+
+    minimal_spec_with_dist = dict(
+        std=            (1.0, logbarrier,),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier,fixed),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier,fixed),
+        pass_threshold= (0.0,),
+        dist_coeff=     (0.0,)
+        
+        #dot_coeff=      (0.0, fixed),
+        #ehmi_coeff=     (0.0,fixed),
+    )
+    #fit = fit_vddm_spec(trials, DT, minimal_spec_with_dist)
+    # {'std': 0.6967848442622474, 'damping': 1.3437233962854764, 'scale': 1.0, 'tau_threshold': 1.8822197054651, 'act_threshold': 1.0, 'pass_threshold': 0.029094969745463637, 'dist_coeff': 0.6867725049121692}
+    # -148.93364292649918
+
+    superminimal_spec_with_dist = dict(
+        std=            (1.0, logbarrier,fixed),
+        damping=        (0.0,),
+        scale=          (1.0, logbarrier,fixed),
+        tau_threshold=  (2.0,),
+        act_threshold=  (1.0, logbarrier,fixed),
+        pass_threshold= (0.0,),
+        dist_coeff=     (0.0,)
+        
+        #dot_coeff=      (0.0, fixed),
+        #ehmi_coeff=     (0.0,fixed),
+    )
+    #fit = fit_vddm_spec(trials, DT, superminimal_spec_with_dist)
+    #{'std': 1.0, 'damping': 1.6752252160668595, 'scale': 1.0, 'tau_threshold': 2.6431830368390146, 'act_threshold': 1.0, 'pass_threshold': -0.13985843065588094, 'dist_coeff': 0.6243733646057706}
+    #-153.61823674968596
+    #fit = fit_unified_vddm(trials, DT, init=vddm_params['keio_uk'])
+    #fit = fit_unified_tdm(trials, DT, init=tdm_params['keio_uk'])
+    #print(fit)
+
 
     
 def fit_hiker():
@@ -1123,12 +1411,12 @@ def plot_schematic():
     plot_traj_schematic(traj)
 
 def plot_keio_schematics():
-    trials = get_keio_trials(include_constants=True, include_decels=False)
+    trials = get_keio_trials(include_constants=False, include_decels=True)
     for i, (traj, resp) in enumerate(trials):
         plot_traj_schematic(traj, resp)
         #plt.show()
-        #plt.savefig(f"figs/keio_decel_sample_{i:02d}.png", dpi=300)
-        plt.savefig(f"figs/keio_const_sample_{i:02d}.png", dpi=300)
+        plt.savefig(f"figs/keio_decel_sample_{i:02d}.png", dpi=300)
+        #plt.savefig(f"figs/keio_const_sample_{i:02d}.png", dpi=300)
 
 def plot_traj_schematic(traj, rts):
     traj = traj[traj.time >= 0]
@@ -1161,7 +1449,7 @@ def plot_traj_schematic(traj, rts):
     pdfplot, = histax.plot(traj.time, ps, 'C0', alpha=0.25, label='Model PDF')
     ndps = np.array(ndmodel.decisions(actgrid, ndinp).ps)
     ndcdf = np.cumsum(ndps*dt)
-    #densax.plot(traj.time, ndcdf, 'C1--', label=r'Model w/o $\dot\tau$')
+    densax.plot(traj.time, ndcdf, 'C1--', label=r'Model w/o $\dot\tau$')
     allweights = np.zeros((len(traj), actgrid.N))
     weights = np.zeros(actgrid.N)
     
@@ -1707,6 +1995,7 @@ def plot_keio_means():
     plt.plot(modelmeans[has_decel], datameans[has_decel], 'C1o', label="Yielding scenario")
     plt.xlabel("Mean predicted crossing time (s)")
     plt.ylabel("Mean observed crossing time (s)")
+    plt.axis("square")
     plt.legend()
     plt.show()
 
@@ -1776,6 +2065,7 @@ def plot_hiker_means():
     plt.plot(modelmeans[~is_braking], datameans[~is_braking], 'o', label="Constant speed")
     plt.xlabel("Predicted mean crossing time (s)")
     plt.ylabel("Measured mean crossing time (s)")
+    plt.axis("square")
     plt.legend()
     plt.show()
 
@@ -2153,6 +2443,12 @@ if __name__ == '__main__':
     #fit_keio('japan')
     #print("hiker")
     #fit_hiker()
+
+    #fit_keio_stagewise()
+    #fit_keio_exhaustive()
+    #fit_keio_taudot()
+
+    #fit_hiker_param()
 
     #plot_sample_trials()
     #plot_schematic()
